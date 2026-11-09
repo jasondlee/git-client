@@ -95,6 +95,18 @@ public final class WorkspaceView extends BorderPane {
             confirmOperation("Create a revert commit for " + selected.id().substring(0, 8) + "?",
                     () -> repositories.revert(current, selected.id()));
         });
+        Button reflog = new Button("Reflog");
+        Button blame = new Button("Blame File");
+        Button worktrees = new Button("Worktrees");
+        reflog.setOnAction(e -> showTextReport("Reflog",
+                () -> String.join("\n", repositories.reflog(repository, 100))));
+        blame.setOnAction(e -> {
+            ChangedFile selected = status.getSelectionModel().getSelectedItem();
+            if (selected != null) showTextReport("Blame: " + selected.path(),
+                    () -> repositories.blame(repository, selected.path()));
+        });
+        worktrees.setOnAction(e -> showTextReport("Worktrees",
+                () -> String.join("\n", repositories.worktrees(repository))));
         Button createTag = new Button("New Tag");
         Button deleteTag = new Button("Delete Tag");
         createTag.setOnAction(e -> createTag());
@@ -153,6 +165,7 @@ public final class WorkspaceView extends BorderPane {
         ToolBar toolbar = new ToolBar(open, refresh, stage, unstage,
                 new Separator(), createBranch, branchSelector, switchBranch,
                 mergeBranch, abortMerge, deleteBranch, rebase, cherryPick, revert,
+                reflog, blame, worktrees,
                 new Separator(), createTag, tagSelector, deleteTag,
                 new Separator(), remoteSelector, fetch, pull, push,
                 new Separator(), stash, stashSelector, applyStash, dropStash,
@@ -208,6 +221,29 @@ public final class WorkspaceView extends BorderPane {
                 commitButton, message);
         commitPane.setPadding(new Insets(8));
         setBottom(commitPane);
+    }
+    private void showTextReport(String title, java.util.function.Supplier<String> loader) {
+        if (repository == null) return;
+        message.setText("Loading " + title + "...");
+        Thread.startVirtualThread(() -> {
+            try {
+                String content = loader.get();
+                Platform.runLater(() -> {
+                    TextArea area = new TextArea(content);
+                    area.setEditable(false);
+                    area.setWrapText(false);
+                    area.setPrefSize(850, 550);
+                    Dialog<Void> dialog = new Dialog<>();
+                    dialog.setTitle(title);
+                    dialog.getDialogPane().setContent(area);
+                    dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
+                    dialog.showAndWait();
+                    message.setText(title + " loaded");
+                });
+            } catch (Exception ex) {
+                Platform.runLater(() -> message.setText(title + ": " + ex.getMessage()));
+            }
+        });
     }
     private void confirmOperation(String question, Runnable action) {
         Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, question,
