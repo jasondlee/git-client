@@ -8,6 +8,7 @@ import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.stage.DirectoryChooser;
+import javafx.stage.FileChooser;
 import java.nio.file.Path;
 
 public final class WorkspaceView extends BorderPane {
@@ -185,6 +186,44 @@ public final class WorkspaceView extends BorderPane {
         });
         worktrees.setOnAction(e -> showTextReport("Worktrees",
                 () -> String.join("\n", repositories.worktrees(repository))));
+        Button exportPatch = new Button("Export Commit Patch");
+        Button applyPatch = new Button("Apply Patch");
+        Button configView = new Button("Local Config");
+        exportPatch.setOnAction(e -> {
+            CommitInfo selected = history.getSelectionModel().getSelectedItem();
+            if (repository == null || selected == null) return;
+            FileChooser chooser = new FileChooser();
+            chooser.setTitle("Save commit patch");
+            chooser.setInitialFileName(selected.id().substring(0, 8) + ".patch");
+            java.io.File target = chooser.showSaveDialog(getScene().getWindow());
+            if (target == null) return;
+            Path current = repository;
+            Thread.startVirtualThread(() -> {
+                try {
+                    String patch = repositories.createPatch(current, selected.id());
+                    java.nio.file.Files.writeString(target.toPath(), patch);
+                    Platform.runLater(() -> message.setText("Patch exported: " + target));
+                } catch (Exception ex) {
+                    Platform.runLater(() -> message.setText("Patch export failed: " + ex.getMessage()));
+                }
+            });
+        });
+        applyPatch.setOnAction(e -> {
+            if (repository == null) return;
+            FileChooser chooser = new FileChooser();
+            chooser.setTitle("Choose patch to apply");
+            java.io.File patch = chooser.showOpenDialog(getScene().getWindow());
+            if (patch == null) return;
+            Path current = repository;
+            confirmOperation("Apply patch " + patch.getName() + " to working tree?",
+                    () -> repositories.applyPatch(current, patch.toPath()));
+        });
+        configView.setOnAction(e -> {
+            if (repository == null) return;
+            Path current = repository;
+            showTextReport("Local Git configuration",
+                    () -> String.join("\n", repositories.gitConfiguration(current)));
+        });
         Button reset = new Button("Reset...");
         Button submodules = new Button("Submodules");
         Button updateSubmodules = new Button("Update Submodules");
@@ -350,7 +389,8 @@ public final class WorkspaceView extends BorderPane {
                 abortOperation, skipRebase, conflicts);
         MenuButton remoteMenu = actionsMenu("Remotes", addRemote, renameRemote,
                 removeRemote, remoteDetails);
-        MenuButton advancedMenu = actionsMenu("Advanced", worktrees, submodules,
+        MenuButton advancedMenu = actionsMenu("Advanced", exportPatch, applyPatch,
+                configView, worktrees, submodules,
                 updateSubmodules, createTag, annotatedTag, deleteTag, stash, applyStash, dropStash);
         ToolBar toolbar = new ToolBar(open, initialize, clone, refresh, stage, unstage,
                 discard, ignore,
