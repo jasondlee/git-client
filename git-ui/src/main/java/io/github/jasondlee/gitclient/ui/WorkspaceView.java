@@ -139,6 +139,32 @@ public final class WorkspaceView extends BorderPane {
             confirmOperation("Create a revert commit for " + selected.id().substring(0, 8) + "?",
                     () -> repositories.revert(current, selected.id()));
         });
+        Button fileHistory = new Button("File History");
+        Button searchHistory = new Button("Search Commits");
+        fileHistory.setOnAction(e -> {
+            if (repository == null) return;
+            TextInputDialog dialog = new TextInputDialog(
+                    status.getSelectionModel().getSelectedItem() == null ? ""
+                            : status.getSelectionModel().getSelectedItem().path());
+            dialog.setTitle("File History");
+            dialog.setContentText("Repository-relative file path:");
+            dialog.showAndWait().ifPresent(path -> {
+                Path current = repository;
+                showTextReport("History: " + path,
+                        () -> String.join("\n", repositories.fileHistory(current, path, 100)));
+            });
+        });
+        searchHistory.setOnAction(e -> {
+            if (repository == null) return;
+            TextInputDialog dialog = new TextInputDialog();
+            dialog.setTitle("Search Commit Messages");
+            dialog.setContentText("Search text:");
+            dialog.showAndWait().ifPresent(query -> {
+                Path current = repository;
+                showTextReport("Commit search: " + query,
+                        () -> String.join("\n", repositories.searchCommits(current, query, 100)));
+            });
+        });
         Button compare = new Button("Compare Branch to HEAD");
         compare.setOnAction(e -> {
             if (repository == null || branchSelector.getValue() == null) return;
@@ -317,7 +343,8 @@ public final class WorkspaceView extends BorderPane {
         stashSelector.setPromptText("Stashes");
         MenuButton branchesMenu = actionsMenu("Branches", createBranch, renameBranch, switchBranch,
                 mergeBranch, abortMerge, deleteBranch, rebase);
-        MenuButton historyMenu = actionsMenu("History", cherryPick, revert, compare, reflog,
+        MenuButton historyMenu = actionsMenu("History", cherryPick, revert, compare,
+                fileHistory, searchHistory, reflog,
                 blame, reset);
         MenuButton operationsMenu = actionsMenu("Operations", continueOperation,
                 abortOperation, skipRebase, conflicts);
