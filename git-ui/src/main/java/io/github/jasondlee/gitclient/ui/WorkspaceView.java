@@ -16,6 +16,9 @@ public final class WorkspaceView extends BorderPane {
     private final Label branch = new Label("");
     private final TableView<ChangedFile> status = new TableView<>();
     private final ListView<CommitInfo> history = new ListView<>();
+    private final TextArea diffPreview = new TextArea();
+    private final TabPane diffTabs = new TabPane();
+    private long diffGeneration;
     private final Label message = new Label("Choose Open Repository to begin.");
     private final TextArea commitMessage = new TextArea();
     private final Button commitButton = new Button("Commit Staged");
@@ -42,6 +45,7 @@ public final class WorkspaceView extends BorderPane {
         working.setCellValueFactory(c -> new ReadOnlyStringWrapper(c.getValue().worktreeStatus()));
         status.getColumns().addAll(path, index, working);
         status.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
+        status.getSelectionModel().selectedItemProperty().addListener((observable, oldFile, newFile) -> loadDiff());
         status.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
         history.setCellFactory(v -> new ListCell<>() {
             @Override protected void updateItem(CommitInfo item, boolean empty) {
@@ -51,10 +55,25 @@ public final class WorkspaceView extends BorderPane {
         });
         SplitPane panes = new SplitPane(new VBox(new Label("Working tree"), status), new VBox(new Label("Recent commits"), history));
         panes.setDividerPositions(0.5);
+        diffPreview.setEditable(false);
+        diffPreview.setWrapText(false);
+        diffPreview.setStyle("-fx-font-family: monospace;");
+        Tab unstagedTab = new Tab("Unstaged");
+        Tab stagedTab = new Tab("Staged");
+        unstagedTab.setClosable(false);
+        stagedTab.setClosable(false);
+        diffTabs.getTabs().addAll(unstagedTab, stagedTab);
+        diffTabs.getSelectionModel().selectedItemProperty().addListener((observable, oldTab, newTab) -> loadDiff());
+        VBox diffPanel = new VBox(6, diffTabs, diffPreview);
+        diffPanel.setPadding(new Insets(8));
+        VBox.setVgrow(diffPreview, Priority.ALWAYS);
+        SplitPane workspace = new SplitPane(panes, diffPanel);
+        workspace.setOrientation(javafx.geometry.Orientation.VERTICAL);
+        workspace.setDividerPositions(0.6);
         VBox.setVgrow(status, Priority.ALWAYS);
         VBox.setVgrow(history, Priority.ALWAYS);
-        setCenter(panes);
-        BorderPane.setMargin(panes, new Insets(8));
+        setCenter(workspace);
+        BorderPane.setMargin(workspace, new Insets(8));
         commitMessage.setPromptText("Commit message");
         commitMessage.setPrefRowCount(3);
         commitButton.setOnAction(e -> commit());
@@ -63,6 +82,31 @@ public final class WorkspaceView extends BorderPane {
                 commitButton, message);
         commitPane.setPadding(new Insets(8));
         setBottom(commitPane);
+    }
+    private void loadDiff() {
+        ChangedFile selected = status.getSelectionModel().getSelectedItem();
+        Path current = repository;
+        long generation = ++diffGeneration;
+        if (current == null || selected == null) {
+            diffPreview.clear();
+            return;
+        }
+        boolean staged = diffTabs.getSelectionModel().getSelectedIndex() == 1;
+        diffPreview.setText("Loading diff...");
+        Thread.startVirtualThread(() -> {
+            try {
+                String diff = repositories.diff(current, selected.path(), staged);
+                Platform.runLater(() -> {
+                    if (generation == diffGeneration) {
+                        diffPreview.setText(diff.isEmpty() ? "No changes in this view." : diff);
+                    }
+                });
+            } catch (Exception ex) {
+                Platform.runLater(() -> {
+                    if (generation == diffGeneration) diffPreview.setText("Diff error: " + ex.getMessage());
+                });
+            }
+        });
     }
     private void changeStaging(boolean unstage) {
         Path current = repository;
@@ -137,6 +181,7 @@ public final class WorkspaceView extends BorderPane {
                     branch.setText(snapshot.branch());
                     status.getItems().setAll(snapshot.files());
                     history.getItems().setAll(commits);
+                    loadDiff();
                     message.setText(snapshot.files().size() + " changed files · " + commits.size() + " commits");
                 });
             } catch (Exception ex) {
