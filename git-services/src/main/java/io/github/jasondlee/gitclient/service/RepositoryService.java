@@ -174,14 +174,14 @@ public final class RepositoryService {
         git.run(findRepository(directory), "reset", "--" + mode, commitId);
     }
     public String configuration(Path directory, String key) {
-        if (key == null || !key.matches("[A-Za-z][A-Za-z0-9-]*\\.[A-Za-z0-9.-]+")) {
+        if (key == null || !key.matches("[A-Za-z][A-Za-z0-9-]*[.][A-Za-z0-9.-]+")) {
             throw new IllegalArgumentException("Invalid configuration key");
         }
         return new String(git.run(findRepository(directory), "config", "--local",
                 "--get", key), StandardCharsets.UTF_8).strip();
     }
     public void setConfiguration(Path directory, String key, String value) {
-        if (key == null || !key.matches("[A-Za-z][A-Za-z0-9-]*\\.[A-Za-z0-9.-]+")
+        if (key == null || !key.matches("[A-Za-z][A-Za-z0-9-]*[.][A-Za-z0-9.-]+")
                 || value == null) {
             throw new IllegalArgumentException("Invalid configuration");
         }
