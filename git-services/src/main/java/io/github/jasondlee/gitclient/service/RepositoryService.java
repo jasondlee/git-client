@@ -60,6 +60,23 @@ public final class RepositoryService {
         }
         return result;
     }
+    public List<String> tags(Path directory) {
+        String output = new String(git.run(findRepository(directory), "tag", "--list"),
+                StandardCharsets.UTF_8);
+        return output.lines().filter(line -> !line.isBlank()).toList();
+    }
+    public void createTag(Path directory, String name) {
+        if (name == null || name.isBlank() || name.startsWith("-")) {
+            throw new IllegalArgumentException("Invalid tag name");
+        }
+        git.run(findRepository(directory), "tag", name);
+    }
+    public void deleteTag(Path directory, String name) {
+        if (name == null || name.isBlank() || name.startsWith("-")) {
+            throw new IllegalArgumentException("Invalid tag name");
+        }
+        git.run(findRepository(directory), "tag", "-d", name);
+    }
     public List<String> branches(Path directory) {
         String output = new String(git.run(findRepository(directory), "branch", "--list",
                 "--format=%(refname:short)"), StandardCharsets.UTF_8);
