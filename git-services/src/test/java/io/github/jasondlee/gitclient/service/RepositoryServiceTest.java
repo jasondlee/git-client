@@ -15,6 +15,25 @@ class RepositoryServiceTest {
         String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         assertEquals(0, process.waitFor(), output);
     }
+    @Test void mergesAndDeletesFeatureBranch() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        Files.writeString(directory.resolve("base.txt"), "base\n");
+        git("add", "base.txt");
+        git("commit", "-m", "base");
+        var service = new RepositoryService();
+        service.createBranch(directory, "feature");
+        service.switchBranch(directory, "feature");
+        Files.writeString(directory.resolve("feature.txt"), "feature\n");
+        git("add", "feature.txt");
+        git("commit", "-m", "feature");
+        service.switchBranch(directory, "master");
+        service.merge(directory, "feature");
+        assertTrue(Files.exists(directory.resolve("feature.txt")));
+        service.deleteBranch(directory, "feature");
+        assertFalse(service.branches(directory).contains("feature"));
+    }
     @Test void stashesAndRestoresWorkingChanges() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
