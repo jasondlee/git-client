@@ -67,7 +67,7 @@ class RepositoryServiceTest {
             service.addWorktree(directory, linked, "feature");
             assertTrue(Files.exists(linked.resolve("tracked.txt")));
             assertTrue(service.worktrees(directory).stream()
-                    .anyMatch(path -> Path.of(path).toAbsolutePath().normalize().equals(linked)));
+                    .anyMatch(path -> Path.of(path).toRealPath().equals(linked.toRealPath())));
             assertThrows(IllegalArgumentException.class,
                     () -> service.removeWorktree(directory, directory));
             service.removeWorktree(directory, linked);
