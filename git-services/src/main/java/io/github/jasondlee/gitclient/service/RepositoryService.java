@@ -414,15 +414,22 @@ public final class RepositoryService {
         if (destination == null || !destination.isAbsolute()) {
             throw new IllegalArgumentException("Worktree destination must be absolute");
         }
-        Path target = destination.toAbsolutePath().normalize();
+        Path target = canonicalWorktreePath(destination);
         if (!worktrees(directory).stream().map(Path::of)
-                .map(path -> path.toAbsolutePath().normalize()).anyMatch(target::equals)) {
+                .map(this::canonicalWorktreePath).anyMatch(target::equals)) {
             throw new IllegalArgumentException("Not a registered worktree: " + target);
         }
-        if (target.equals(findRepository(directory))) {
+        if (target.equals(canonicalWorktreePath(findRepository(directory)))) {
             throw new IllegalArgumentException("Cannot remove the current worktree");
         }
         git.run(findRepository(directory), "worktree", "remove", target.toString());
+    }
+    private Path canonicalWorktreePath(Path path) {
+        try {
+            return path.toRealPath();
+        } catch (java.io.IOException ex) {
+            throw new IllegalArgumentException("Worktree path is inaccessible: " + path, ex);
+        }
     }
     public List<String> reflog(Path directory, int count) {
         if (count <= 0) return List.of();
