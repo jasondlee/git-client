@@ -60,6 +60,18 @@ public final class RepositoryService {
         }
         return result;
     }
+    public List<String> remotes(Path directory) {
+        String output = new String(git.run(findRepository(directory), "remote"),
+                StandardCharsets.UTF_8);
+        return output.lines().filter(line -> !line.isBlank()).toList();
+    }
+    public void fetch(Path directory, String remote) {
+        if (remote == null || remote.isBlank() || remote.startsWith("-")
+                || !remotes(directory).contains(remote)) {
+            throw new IllegalArgumentException("Unknown remote");
+        }
+        git.run(findRepository(directory), "fetch", "--prune", "--", remote);
+    }
     public List<String> tags(Path directory) {
         String output = new String(git.run(findRepository(directory), "tag", "--list"),
                 StandardCharsets.UTF_8);
