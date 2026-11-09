@@ -14,6 +14,7 @@ public final class WorkspaceView extends BorderPane {
     private final RepositoryService repositories = new RepositoryService();
     private final Label location = new Label("No repository open");
     private final Label branch = new Label("");
+    private final Label operationState = new Label("");
     private final ComboBox<String> branchSelector = new ComboBox<>();
     private final ComboBox<String> tagSelector = new ComboBox<>();
     private final ComboBox<String> remoteSelector = new ComboBox<>();
@@ -132,6 +133,20 @@ public final class WorkspaceView extends BorderPane {
             confirmOperation("Initialize and update submodules?",
                     () -> repositories.updateSubmodules(current));
         });
+        Button continueOperation = new Button("Continue Operation");
+        Button abortOperation = new Button("Abort Operation");
+        Button skipRebase = new Button("Skip Rebase Commit");
+        Button conflicts = new Button("Conflicts");
+        continueOperation.setOnAction(e -> operateOnSequencer(false));
+        abortOperation.setOnAction(e -> operateOnSequencer(true));
+        skipRebase.setOnAction(e -> {
+            if (repository == null) return;
+            Path current = repository;
+            confirmOperation("Skip the current rebase commit?",
+                    () -> repositories.skipRebase(current));
+        });
+        conflicts.setOnAction(e -> showTextReport("Unresolved conflicts",
+                () -> String.join("\n", repositories.conflictedFiles(repository))));
         Button createTag = new Button("New Tag");
         Button deleteTag = new Button("Delete Tag");
         createTag.setOnAction(e -> createTag());
@@ -191,6 +206,7 @@ public final class WorkspaceView extends BorderPane {
                 new Separator(), createBranch, branchSelector, switchBranch,
                 mergeBranch, abortMerge, deleteBranch, rebase, cherryPick, revert,
                 reflog, blame, worktrees, reset, submodules, updateSubmodules,
+                operationState, continueOperation, abortOperation, skipRebase, conflicts,
                 new Separator(), createTag, tagSelector, deleteTag,
                 new Separator(), remoteSelector, fetch, pull, push,
                 new Separator(), stash, stashSelector, applyStash, dropStash,
@@ -246,6 +262,23 @@ public final class WorkspaceView extends BorderPane {
                 commitButton, message);
         commitPane.setPadding(new Insets(8));
         setBottom(commitPane);
+    }
+    private void operateOnSequencer(boolean abort) {
+        if (repository == null) return;
+        Path current = repository;
+        String state = operationState.getText();
+        Runnable action = switch (state) {
+            case "MERGE" -> abort ? () -> repositories.abortMerge(current)
+                    : () -> repositories.continueMerge(current);
+            case "REBASE" -> abort ? () -> repositories.abortRebase(current)
+                    : () -> repositories.continueRebase(current);
+            case "CHERRY_PICK" -> abort ? () -> repositories.abortCherryPick(current)
+                    : () -> repositories.continueCherryPick(current);
+            case "REVERT" -> abort ? () -> repositories.abortRevert(current)
+                    : () -> repositories.continueRevert(current);
+            default -> null;
+        };
+        if (action != null) confirmOperation((abort ? "Abort " : "Continue ") + state + "?", action);
     }
     private void showTextReport(String title, java.util.function.Supplier<String> loader) {
         if (repository == null) return;
@@ -443,11 +476,13 @@ public final class WorkspaceView extends BorderPane {
                 var tags = repositories.tags(root);
                 var remotes = repositories.remotes(root);
                 var stashes = repositories.stashes(root);
+                var operation = repositories.operationState(root);
                 Platform.runLater(() -> {
                     if (generation != refreshGeneration) return;
                     repository = root;
                     location.setText(root.toString());
                     branch.setText(snapshot.branch());
+                    operationState.setText(operation);
                     branchSelector.getItems().setAll(branches);
                     branchSelector.setValue(snapshot.branch());
                     tagSelector.getItems().setAll(tags);
