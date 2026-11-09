@@ -7,6 +7,25 @@ import java.util.*;
 public final class RepositoryService {
     private final GitCommandExecutor git = new GitCommandExecutor();
     private final GitStatusParser statusParser = new GitStatusParser();
+    public Path initialize(Path directory) {
+        if (directory == null || !java.nio.file.Files.isDirectory(directory)) {
+            throw new IllegalArgumentException("Choose an existing directory");
+        }
+        git.run(directory, "init");
+        return findRepository(directory);
+    }
+    public Path cloneRepository(Path parentDirectory, String url, String folderName) {
+        if (parentDirectory == null || !java.nio.file.Files.isDirectory(parentDirectory)
+                || url == null || url.isBlank() || url.startsWith("-")
+                || folderName == null || folderName.isBlank()
+                || folderName.equals(".") || folderName.equals("..")
+                || !Path.of(folderName).getFileName().toString().equals(folderName)
+                || java.nio.file.Files.exists(parentDirectory.resolve(folderName))) {
+            throw new IllegalArgumentException("Invalid clone destination or repository URL");
+        }
+        git.run(parentDirectory, "clone", "--", url, folderName);
+        return findRepository(parentDirectory.resolve(folderName));
+    }
     public Path findRepository(Path directory) {
         String path = new String(git.run(directory, "rev-parse", "--show-toplevel"), StandardCharsets.UTF_8).strip();
         return Path.of(path).toAbsolutePath().normalize();
