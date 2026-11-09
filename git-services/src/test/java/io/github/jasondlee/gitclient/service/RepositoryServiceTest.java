@@ -15,6 +15,20 @@ class RepositoryServiceTest {
         String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         assertEquals(0, process.waitFor(), output);
     }
+    @Test void createsAndDeletesLocalTags() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        Files.writeString(directory.resolve("tracked.txt"), "initial\n");
+        git("add", "tracked.txt");
+        git("commit", "-m", "initial");
+        var service = new RepositoryService();
+        service.createTag(directory, "v1.0");
+        assertTrue(service.tags(directory).contains("v1.0"));
+        service.deleteTag(directory, "v1.0");
+        assertFalse(service.tags(directory).contains("v1.0"));
+        assertThrows(IllegalArgumentException.class, () -> service.createTag(directory, "-bad"));
+    }
     @Test void createsAndSwitchesLocalBranches() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
