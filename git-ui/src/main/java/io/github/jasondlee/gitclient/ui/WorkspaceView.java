@@ -74,6 +74,43 @@ public final class WorkspaceView extends BorderPane {
         stage.setOnAction(e -> changeStaging(false));
         unstage.setOnAction(e -> changeStaging(true));
         Button createBranch = new Button("New Branch");
+        Button remoteBranches = new Button("Remote Branches");
+        Button trackingBranch = new Button("Track Remote Branch");
+        remoteBranches.setOnAction(e -> {
+            if (repository == null) return;
+            Path current = repository;
+            showTextReport("Remote-tracking branches",
+                    () -> String.join("\n", repositories.remoteBranches(current)));
+        });
+        trackingBranch.setOnAction(e -> {
+            if (repository == null) return;
+            Path current = repository;
+            Thread.startVirtualThread(() -> {
+                try {
+                    var remoteNames = repositories.remoteBranches(current);
+                    Platform.runLater(() -> {
+                        if (remoteNames.isEmpty()) {
+                            message.setText("Fetch a remote to discover remote-tracking branches.");
+                            return;
+                        }
+                        ChoiceDialog<String> select = new ChoiceDialog<>(remoteNames.getFirst(), remoteNames);
+                        select.setTitle("Track Remote Branch");
+                        select.setHeaderText("Choose remote-tracking branch");
+                        select.showAndWait().ifPresent(remoteName -> {
+                            String suggested = remoteName.contains("/")
+                                    ? remoteName.substring(remoteName.indexOf('/') + 1) : remoteName;
+                            TextInputDialog local = new TextInputDialog(suggested);
+                            local.setTitle("Track Remote Branch");
+                            local.setContentText("Local branch name:");
+                            local.showAndWait().ifPresent(name -> runBranchAction(
+                                    () -> repositories.createTrackingBranch(current, name, remoteName)));
+                        });
+                    });
+                } catch (Exception ex) {
+                    Platform.runLater(() -> message.setText("Remote branches: " + ex.getMessage()));
+                }
+            });
+        });
         Button renameBranch = new Button("Rename Branch");
         renameBranch.setOnAction(e -> {
             if (repository == null || branchSelector.getValue() == null) return;
@@ -429,7 +466,8 @@ public final class WorkspaceView extends BorderPane {
                     });
         });
         stashSelector.setPromptText("Stashes");
-        MenuButton branchesMenu = actionsMenu("Branches", createBranch, renameBranch, switchBranch,
+        MenuButton branchesMenu = actionsMenu("Branches", createBranch, renameBranch,
+                remoteBranches, trackingBranch, switchBranch,
                 mergeBranch, abortMerge, deleteBranch, rebase);
         MenuButton historyMenu = actionsMenu("History", cherryPick, revert, compare,
                 fileHistory, searchHistory, reflog,
