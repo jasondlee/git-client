@@ -15,6 +15,12 @@ class RepositoryServiceTest {
         String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         assertEquals(0, process.waitFor(), output);
     }
+    @Test void emptyRepositoryHasNoHistory() throws Exception {
+        git("init", "-b", "master");
+        var service = new RepositoryService();
+        assertEquals("master", service.status(directory).branch());
+        assertTrue(service.history(directory, 100).isEmpty());
+    }
     @Test void readsRealRepositoryStatusAndHistory() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
