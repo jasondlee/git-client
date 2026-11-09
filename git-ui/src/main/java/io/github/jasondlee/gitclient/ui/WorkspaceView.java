@@ -156,6 +156,52 @@ public final class WorkspaceView extends BorderPane {
         createTag.setOnAction(e -> createTag());
         deleteTag.setOnAction(e -> deleteTag());
         tagSelector.setPromptText("Local tags");
+        Button addRemote = new Button("Add Remote");
+        Button renameRemote = new Button("Rename Remote");
+        Button removeRemote = new Button("Remove Remote");
+        Button remoteDetails = new Button("Remote URL");
+        addRemote.setOnAction(e -> {
+            if (repository == null) return;
+            TextInputDialog nameDialog = new TextInputDialog("origin");
+            nameDialog.setTitle("Add Remote");
+            nameDialog.setHeaderText("New remote");
+            nameDialog.setContentText("Name:");
+            nameDialog.showAndWait().ifPresent(name -> {
+                TextInputDialog urlDialog = new TextInputDialog();
+                urlDialog.setTitle("Add Remote");
+                urlDialog.setHeaderText("Remote " + name);
+                urlDialog.setContentText("URL:");
+                urlDialog.showAndWait().ifPresent(url -> {
+                    Path current = repository;
+                    runBranchAction(() -> repositories.addRemote(current, name, url));
+                });
+            });
+        });
+        renameRemote.setOnAction(e -> {
+            if (repository == null || remoteSelector.getValue() == null) return;
+            String oldName = remoteSelector.getValue();
+            TextInputDialog dialog = new TextInputDialog(oldName);
+            dialog.setTitle("Rename Remote");
+            dialog.setContentText("New name:");
+            dialog.showAndWait().ifPresent(name -> {
+                Path current = repository;
+                runBranchAction(() -> repositories.renameRemote(current, oldName, name));
+            });
+        });
+        removeRemote.setOnAction(e -> {
+            if (repository == null || remoteSelector.getValue() == null) return;
+            String name = remoteSelector.getValue();
+            Path current = repository;
+            confirmOperation("Remove remote '" + name + "' from this repository?",
+                    () -> repositories.removeRemote(current, name));
+        });
+        remoteDetails.setOnAction(e -> {
+            if (repository == null || remoteSelector.getValue() == null) return;
+            Path current = repository;
+            String name = remoteSelector.getValue();
+            showTextReport("Remote URL: " + name,
+                    () -> repositories.remoteUrl(current, name));
+        });
         Button fetch = new Button("Fetch");
         fetch.setOnAction(e -> {
             if (repository == null || remoteSelector.getValue() == null) return;
@@ -212,13 +258,15 @@ public final class WorkspaceView extends BorderPane {
                 blame, reset);
         MenuButton operationsMenu = actionsMenu("Operations", continueOperation,
                 abortOperation, skipRebase, conflicts);
+        MenuButton remoteMenu = actionsMenu("Remotes", addRemote, renameRemote,
+                removeRemote, remoteDetails);
         MenuButton advancedMenu = actionsMenu("Advanced", worktrees, submodules,
                 updateSubmodules, createTag, deleteTag, stash, applyStash, dropStash);
         ToolBar toolbar = new ToolBar(open, initialize, clone, refresh, stage, unstage,
                 new Separator(), branchSelector, branchesMenu,
                 new Separator(), historyMenu, operationsMenu, advancedMenu,
                 new Separator(), tagSelector, stashSelector,
-                new Separator(), remoteSelector, fetch, pull, push,
+                new Separator(), remoteSelector, remoteMenu, fetch, pull, push,
                 new Separator(), branch, location);
         setTop(toolbar);
         TableColumn<ChangedFile,String> path = new TableColumn<>("File");
