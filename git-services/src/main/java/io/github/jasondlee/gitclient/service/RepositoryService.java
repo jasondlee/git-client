@@ -16,6 +16,8 @@ public final class RepositoryService {
     }
     public List<CommitInfo> history(Path directory, int count) {
         if (count <= 0) return List.of();
+        String status = new String(git.run(directory, "status", "--porcelain=v2", "--branch", "-z"), StandardCharsets.UTF_8);
+        if (status.startsWith("# branch.oid (initial)\u0000") || status.contains("\u0000# branch.oid (initial)\u0000")) return List.of();
         byte[] data = git.run(directory, "log", "-n", Integer.toString(count), "--format=%H%x1f%s%x1f%an%x1f%cI%x1e");
         String output = new String(data, StandardCharsets.UTF_8);
         List<CommitInfo> commits = new ArrayList<>();
