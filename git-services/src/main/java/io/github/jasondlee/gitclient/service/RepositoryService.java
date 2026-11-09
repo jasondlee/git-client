@@ -196,6 +196,22 @@ public final class RepositoryService {
                 StandardCharsets.UTF_8);
         return output.lines().filter(line -> !line.isBlank()).toList();
     }
+    public String createPatch(Path directory, String commitId) {
+        validateCommitId(commitId);
+        return new String(git.run(findRepository(directory), "format-patch", "-1",
+                "--stdout", commitId), StandardCharsets.UTF_8);
+    }
+    public void applyPatch(Path directory, Path patchFile) {
+        if (patchFile == null || !java.nio.file.Files.isRegularFile(patchFile)) {
+            throw new IllegalArgumentException("Patch file does not exist");
+        }
+        git.run(findRepository(directory), "apply", "--", patchFile.toAbsolutePath().toString());
+    }
+    public List<String> gitConfiguration(Path directory) {
+        String output = new String(git.run(findRepository(directory), "config", "--local",
+                "--list"), StandardCharsets.UTF_8);
+        return output.lines().toList();
+    }
     public List<String> fileHistory(Path directory, String path, int count) {
         if (count <= 0) return List.of();
         Path root = findRepository(directory);
