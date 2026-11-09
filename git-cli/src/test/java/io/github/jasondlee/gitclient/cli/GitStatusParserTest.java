@@ -16,4 +16,20 @@ class GitStatusParserTest {
         assertEquals(".", result.files().getFirst().indexStatus());
         assertEquals("M", result.files().getFirst().worktreeStatus());
     }
+    @Test void parsesRenameAndPreservesUnusualPaths() {
+        String renamed = "2 R. N... 100644 100644 100644 abc def R100 new name\nwith tab\t.txt\0"
+                + "old name.txt\0"
+                + "? Unicode-雪.txt\0";
+        var result = new GitStatusParser().parse(renamed.getBytes(StandardCharsets.UTF_8));
+        assertEquals(2, result.files().size());
+        assertEquals("new name\nwith tab\t.txt", result.files().get(0).path());
+        assertEquals("R", result.files().get(0).indexStatus());
+        assertEquals("Unicode-雪.txt", result.files().get(1).path());
+    }
+    @Test void rejectsRenameMissingOriginalPath() {
+        String renamed = "2 R. N... 100644 100644 100644 abc def R100 new.txt\0";
+        assertThrows(GitException.class,
+                () -> new GitStatusParser().parse(renamed.getBytes(StandardCharsets.UTF_8)));
+    }
+
 }
