@@ -15,6 +15,29 @@ class RepositoryServiceTest {
         String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         assertEquals(0, process.waitFor(), output);
     }
+    @Test void stagesAndUnstagesSelectedPaths() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        Files.writeString(directory.resolve("tracked.txt"), "initial\n");
+        git("add", "tracked.txt");
+        git("commit", "-m", "initial");
+        Files.writeString(directory.resolve("tracked.txt"), "modified\n");
+        Files.writeString(directory.resolve("another.txt"), "untracked\n");
+        var service = new RepositoryService();
+        service.stage(directory, java.util.List.of("tracked.txt"));
+        var staged = service.status(directory);
+        assertEquals("M", staged.files().stream().filter(f -> f.path().equals("tracked.txt"))
+                .findFirst().orElseThrow().indexStatus());
+        assertEquals("?", staged.files().stream().filter(f -> f.path().equals("another.txt"))
+                .findFirst().orElseThrow().indexStatus());
+        service.unstage(directory, java.util.List.of("tracked.txt"));
+        var unstaged = service.status(directory);
+        assertEquals(".", unstaged.files().stream().filter(f -> f.path().equals("tracked.txt"))
+                .findFirst().orElseThrow().indexStatus());
+        assertEquals("M", unstaged.files().stream().filter(f -> f.path().equals("tracked.txt"))
+                .findFirst().orElseThrow().worktreeStatus());
+    }
     @Test void emptyRepositoryHasNoHistory() throws Exception {
         git("init", "-b", "master");
         var service = new RepositoryService();
