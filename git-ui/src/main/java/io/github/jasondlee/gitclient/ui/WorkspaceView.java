@@ -14,6 +14,7 @@ public final class WorkspaceView extends BorderPane {
     private final RepositoryService repositories = new RepositoryService();
     private final Label location = new Label("No repository open");
     private final Label branch = new Label("");
+    private final ComboBox<String> branchSelector = new ComboBox<>();
     private final TableView<ChangedFile> status = new TableView<>();
     private final ListView<CommitInfo> history = new ListView<>();
     private final TextArea diffPreview = new TextArea();
@@ -35,7 +36,14 @@ public final class WorkspaceView extends BorderPane {
         Button unstage = new Button("Unstage Selected");
         stage.setOnAction(e -> changeStaging(false));
         unstage.setOnAction(e -> changeStaging(true));
-        ToolBar toolbar = new ToolBar(open, refresh, stage, unstage, new Separator(), location, new Separator(), branch);
+        Button createBranch = new Button("New Branch");
+        Button switchBranch = new Button("Switch Branch");
+        createBranch.setOnAction(e -> createBranch());
+        switchBranch.setOnAction(e -> switchBranch());
+        branchSelector.setPromptText("Local branches");
+        ToolBar toolbar = new ToolBar(open, refresh, stage, unstage,
+                new Separator(), createBranch, branchSelector, switchBranch,
+                new Separator(), location, new Separator(), branch);
         setTop(toolbar);
         TableColumn<ChangedFile,String> path = new TableColumn<>("File");
         path.setCellValueFactory(c -> new ReadOnlyStringWrapper(c.getValue().path()));
@@ -82,6 +90,30 @@ public final class WorkspaceView extends BorderPane {
                 commitButton, message);
         commitPane.setPadding(new Insets(8));
         setBottom(commitPane);
+    }
+    private void createBranch() {
+        if (repository == null) return;
+        TextInputDialog dialog = new TextInputDialog();
+        dialog.setTitle("Create Branch");
+        dialog.setHeaderText("New local branch");
+        dialog.setContentText("Branch name:");
+        dialog.showAndWait().ifPresent(name -> runBranchAction(() -> repositories.createBranch(repository, name)));
+    }
+    private void switchBranch() {
+        if (repository == null || branchSelector.getValue() == null) return;
+        String name = branchSelector.getValue();
+        runBranchAction(() -> repositories.switchBranch(repository, name));
+    }
+    private void runBranchAction(Runnable action) {
+        message.setText("Updating branch...");
+        Thread.startVirtualThread(() -> {
+            try {
+                action.run();
+                Platform.runLater(this::refresh);
+            } catch (Exception ex) {
+                Platform.runLater(() -> message.setText("Branch error: " + ex.getMessage()));
+            }
+        });
     }
     private void loadDiff() {
         ChangedFile selected = status.getSelectionModel().getSelectedItem();
@@ -174,11 +206,14 @@ public final class WorkspaceView extends BorderPane {
                 Path root = repositories.findRepository(current);
                 RepositoryStatus snapshot = repositories.status(root);
                 var commits = repositories.history(root, 100);
+                var branches = repositories.branches(root);
                 Platform.runLater(() -> {
                     if (generation != refreshGeneration) return;
                     repository = root;
                     location.setText(root.toString());
                     branch.setText(snapshot.branch());
+                    branchSelector.getItems().setAll(branches);
+                    branchSelector.setValue(snapshot.branch());
                     status.getItems().setAll(snapshot.files());
                     history.getItems().setAll(commits);
                     loadDiff();
