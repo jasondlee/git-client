@@ -33,6 +33,10 @@ public final class WorkspaceView extends BorderPane {
 
     public WorkspaceView() {
         Button open = new Button("Open Repository");
+        Button initialize = new Button("Initialize...");
+        Button clone = new Button("Clone...");
+        initialize.setOnAction(e -> initializeRepository());
+        clone.setOnAction(e -> cloneRepository());
         Button refresh = new Button("Refresh");
         open.setOnAction(e -> openRepository());
         refresh.setOnAction(e -> refresh());
@@ -210,7 +214,7 @@ public final class WorkspaceView extends BorderPane {
                 abortOperation, skipRebase, conflicts);
         MenuButton advancedMenu = actionsMenu("Advanced", worktrees, submodules,
                 updateSubmodules, createTag, deleteTag, stash, applyStash, dropStash);
-        ToolBar toolbar = new ToolBar(open, refresh, stage, unstage,
+        ToolBar toolbar = new ToolBar(open, initialize, clone, refresh, stage, unstage,
                 new Separator(), branchSelector, branchesMenu,
                 new Separator(), historyMenu, operationsMenu, advancedMenu,
                 new Separator(), tagSelector, stashSelector,
@@ -465,6 +469,52 @@ public final class WorkspaceView extends BorderPane {
                     message.setText("Commit failed: " + ex.getMessage());
                 });
             }
+        });
+    }
+    private void initializeRepository() {
+        DirectoryChooser chooser = new DirectoryChooser();
+        chooser.setTitle("Initialize Git repository in directory");
+        java.io.File selected = chooser.showDialog(getScene().getWindow());
+        if (selected == null) return;
+        Thread.startVirtualThread(() -> {
+            try {
+                Path root = repositories.initialize(selected.toPath());
+                Platform.runLater(() -> {
+                    repository = root;
+                    refresh();
+                });
+            } catch (Exception ex) {
+                Platform.runLater(() -> message.setText("Initialize failed: " + ex.getMessage()));
+            }
+        });
+    }
+    private void cloneRepository() {
+        TextInputDialog urlDialog = new TextInputDialog();
+        urlDialog.setTitle("Clone Repository");
+        urlDialog.setHeaderText("Clone a Git repository");
+        urlDialog.setContentText("Repository URL or local path:");
+        var url = urlDialog.showAndWait();
+        if (url.isEmpty() || url.get().isBlank()) return;
+        DirectoryChooser chooser = new DirectoryChooser();
+        chooser.setTitle("Choose parent directory for clone");
+        java.io.File parent = chooser.showDialog(getScene().getWindow());
+        if (parent == null) return;
+        TextInputDialog folderDialog = new TextInputDialog("repository");
+        folderDialog.setTitle("Clone Repository");
+        folderDialog.setHeaderText("New folder name");
+        folderDialog.setContentText("Folder:");
+        folderDialog.showAndWait().ifPresent(folder -> {
+            Thread.startVirtualThread(() -> {
+                try {
+                    Path root = repositories.cloneRepository(parent.toPath(), url.get(), folder);
+                    Platform.runLater(() -> {
+                        repository = root;
+                        refresh();
+                    });
+                } catch (Exception ex) {
+                    Platform.runLater(() -> message.setText("Clone failed: " + ex.getMessage()));
+                }
+            });
         });
     }
     private void openRepository() {
