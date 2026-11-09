@@ -60,6 +60,24 @@ public final class RepositoryService {
         }
         return result;
     }
+    public List<String> branches(Path directory) {
+        String output = new String(git.run(findRepository(directory), "branch", "--list",
+                "--format=%(refname:short)"), StandardCharsets.UTF_8);
+        return output.lines().filter(line -> !line.isBlank()).toList();
+    }
+    public void createBranch(Path directory, String name) {
+        validateBranchName(name);
+        git.run(findRepository(directory), "branch", name);
+    }
+    public void switchBranch(Path directory, String name) {
+        validateBranchName(name);
+        git.run(findRepository(directory), "switch", name);
+    }
+    private void validateBranchName(String name) {
+        if (name == null || name.isBlank() || name.startsWith("-")) {
+            throw new IllegalArgumentException("Invalid branch name");
+        }
+    }
     /** Commit staged changes only, preserving unstaged working-tree edits. */
     public String commit(Path directory, String message) {
         if (message == null || message.isBlank()) {
