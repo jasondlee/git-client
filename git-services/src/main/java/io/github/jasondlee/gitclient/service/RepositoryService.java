@@ -112,6 +112,42 @@ public final class RepositoryService {
             throw new IllegalArgumentException("Invalid stash reference");
         }
     }
+    public void addRemote(Path directory, String name, String url) {
+        validateRemoteName(name);
+        if (url == null || url.isBlank() || url.startsWith("-")) {
+            throw new IllegalArgumentException("Invalid remote URL");
+        }
+        git.run(findRepository(directory), "remote", "add", name, url);
+    }
+    public void renameRemote(Path directory, String oldName, String newName) {
+        validateRemoteName(oldName);
+        validateRemoteName(newName);
+        if (!remotes(directory).contains(oldName)) {
+            throw new IllegalArgumentException("Unknown remote: " + oldName);
+        }
+        git.run(findRepository(directory), "remote", "rename", oldName, newName);
+    }
+    public void removeRemote(Path directory, String name) {
+        validateRemoteName(name);
+        if (!remotes(directory).contains(name)) {
+            throw new IllegalArgumentException("Unknown remote: " + name);
+        }
+        git.run(findRepository(directory), "remote", "remove", name);
+    }
+    public String remoteUrl(Path directory, String name) {
+        validateRemoteName(name);
+        if (!remotes(directory).contains(name)) {
+            throw new IllegalArgumentException("Unknown remote: " + name);
+        }
+        return new String(git.run(findRepository(directory), "remote", "get-url", name),
+                StandardCharsets.UTF_8).strip();
+    }
+    private void validateRemoteName(String name) {
+        if (name == null || name.isBlank() || name.startsWith("-")
+                || name.contains("\\n") || name.contains("\\r")) {
+            throw new IllegalArgumentException("Invalid remote name");
+        }
+    }
     public List<String> remotes(Path directory) {
         String output = new String(git.run(findRepository(directory), "remote"),
                 StandardCharsets.UTF_8);
