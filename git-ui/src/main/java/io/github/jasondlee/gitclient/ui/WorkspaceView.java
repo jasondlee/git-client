@@ -15,6 +15,7 @@ public final class WorkspaceView extends BorderPane {
     private final Label location = new Label("No repository open");
     private final Label branch = new Label("");
     private final ComboBox<String> branchSelector = new ComboBox<>();
+    private final ComboBox<String> tagSelector = new ComboBox<>();
     private final TableView<ChangedFile> status = new TableView<>();
     private final ListView<CommitInfo> history = new ListView<>();
     private final TextArea diffPreview = new TextArea();
@@ -41,8 +42,14 @@ public final class WorkspaceView extends BorderPane {
         createBranch.setOnAction(e -> createBranch());
         switchBranch.setOnAction(e -> switchBranch());
         branchSelector.setPromptText("Local branches");
+        Button createTag = new Button("New Tag");
+        Button deleteTag = new Button("Delete Tag");
+        createTag.setOnAction(e -> createTag());
+        deleteTag.setOnAction(e -> deleteTag());
+        tagSelector.setPromptText("Local tags");
         ToolBar toolbar = new ToolBar(open, refresh, stage, unstage,
                 new Separator(), createBranch, branchSelector, switchBranch,
+                new Separator(), createTag, tagSelector, deleteTag,
                 new Separator(), location, new Separator(), branch);
         setTop(toolbar);
         TableColumn<ChangedFile,String> path = new TableColumn<>("File");
@@ -90,6 +97,22 @@ public final class WorkspaceView extends BorderPane {
                 commitButton, message);
         commitPane.setPadding(new Insets(8));
         setBottom(commitPane);
+    }
+    private void createTag() {
+        if (repository == null) return;
+        TextInputDialog dialog = new TextInputDialog();
+        dialog.setTitle("Create Tag");
+        dialog.setHeaderText("Create lightweight tag at HEAD");
+        dialog.setContentText("Tag name:");
+        dialog.showAndWait().ifPresent(name -> runBranchAction(() -> repositories.createTag(repository, name)));
+    }
+    private void deleteTag() {
+        if (repository == null || tagSelector.getValue() == null) return;
+        String name = tagSelector.getValue();
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
+                "Delete local tag '" + name + "'?", ButtonType.OK, ButtonType.CANCEL);
+        confirm.showAndWait().filter(button -> button == ButtonType.OK)
+                .ifPresent(button -> runBranchAction(() -> repositories.deleteTag(repository, name)));
     }
     private void createBranch() {
         if (repository == null) return;
@@ -207,6 +230,7 @@ public final class WorkspaceView extends BorderPane {
                 RepositoryStatus snapshot = repositories.status(root);
                 var commits = repositories.history(root, 100);
                 var branches = repositories.branches(root);
+                var tags = repositories.tags(root);
                 Platform.runLater(() -> {
                     if (generation != refreshGeneration) return;
                     repository = root;
@@ -214,6 +238,7 @@ public final class WorkspaceView extends BorderPane {
                     branch.setText(snapshot.branch());
                     branchSelector.getItems().setAll(branches);
                     branchSelector.setValue(snapshot.branch());
+                    tagSelector.getItems().setAll(tags);
                     status.getItems().setAll(snapshot.files());
                     history.getItems().setAll(commits);
                     loadDiff();
