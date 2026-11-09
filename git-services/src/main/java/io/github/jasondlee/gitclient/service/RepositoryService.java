@@ -166,6 +166,14 @@ public final class RepositoryService {
         git.run(root, "commit", "-m", message);
         return new String(git.run(root, "rev-parse", "HEAD"), StandardCharsets.UTF_8).strip();
     }
+    public String showCommit(Path directory, String commitId) {
+        if (commitId == null || !commitId.matches("[0-9a-fA-F]{7,64}")) {
+            throw new IllegalArgumentException("Invalid commit ID");
+        }
+        return new String(git.run(findRepository(directory), "show", "--no-ext-diff",
+                "--no-color", "--format=fuller", "--stat", "--patch", commitId),
+                StandardCharsets.UTF_8);
+    }
     public List<CommitInfo> history(Path directory, int count) {
         if (count <= 0) return List.of();
         String status = new String(git.run(directory, "status", "--porcelain=v2", "--branch", "-z"), StandardCharsets.UTF_8);
