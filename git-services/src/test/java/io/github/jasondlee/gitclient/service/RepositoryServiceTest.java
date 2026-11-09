@@ -15,6 +15,20 @@ class RepositoryServiceTest {
         String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         assertEquals(0, process.waitFor(), output);
     }
+    @Test void displaysCommitPatch() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        Files.writeString(directory.resolve("detail.txt"), "commit details\n");
+        git("add", "detail.txt");
+        git("commit", "-m", "show details");
+        var service = new RepositoryService();
+        String id = service.history(directory, 1).getFirst().id();
+        String details = service.showCommit(directory, id);
+        assertTrue(details.contains("show details"));
+        assertTrue(details.contains("+commit details"));
+        assertThrows(IllegalArgumentException.class, () -> service.showCommit(directory, "--all"));
+    }
     @Test void mergesAndDeletesFeatureBranch() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
