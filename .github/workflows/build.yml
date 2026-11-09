@@ -1,0 +1,30 @@
+name: Build and test
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 27
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '27'
+          cache: maven
+      - name: Verify build and run tests
+        run: mvn --batch-mode --no-transfer-progress verify
