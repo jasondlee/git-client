@@ -166,6 +166,39 @@ public final class RepositoryService {
         git.run(root, "commit", "-m", message);
         return new String(git.run(root, "rev-parse", "HEAD"), StandardCharsets.UTF_8).strip();
     }
+    public List<String> worktrees(Path directory) {
+        String output = new String(git.run(findRepository(directory),
+                "worktree", "list", "--porcelain"), StandardCharsets.UTF_8);
+        return output.lines().filter(line -> line.startsWith("worktree "))
+                .map(line -> line.substring("worktree ".length())).toList();
+    }
+    public void addWorktree(Path directory, Path destination, String branchName) {
+        validateBranchName(branchName);
+        if (destination == null || !destination.isAbsolute()) {
+            throw new IllegalArgumentException("Worktree destination must be absolute");
+        }
+        git.run(findRepository(directory), "worktree", "add", destination.toString(), branchName);
+    }
+    public void removeWorktree(Path directory, Path destination) {
+        if (destination == null || !destination.isAbsolute()) {
+            throw new IllegalArgumentException("Worktree destination must be absolute");
+        }
+        git.run(findRepository(directory), "worktree", "remove", destination.toString());
+    }
+    public List<String> reflog(Path directory, int count) {
+        if (count <= 0) return List.of();
+        String output = new String(git.run(findRepository(directory), "reflog",
+                "-n", Integer.toString(count), "--format=%h %gs"), StandardCharsets.UTF_8);
+        return output.lines().toList();
+    }
+    public String blame(Path directory, String path) {
+        Path root = findRepository(directory);
+        if (path == null || path.isBlank() || Path.of(path).isAbsolute()
+                || !root.resolve(path).normalize().startsWith(root)) {
+            throw new IllegalArgumentException("Invalid path");
+        }
+        return new String(git.run(root, "blame", "--", path), StandardCharsets.UTF_8);
+    }
     public void cherryPick(Path directory, String commitId) {
         validateCommitId(commitId);
         git.run(findRepository(directory), "cherry-pick", commitId);
