@@ -15,6 +15,21 @@ class RepositoryServiceTest {
         String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         assertEquals(0, process.waitFor(), output);
     }
+    @Test void managesRemoteNamesAndUrls() throws Exception {
+        git("init", "-b", "master");
+        var service = new RepositoryService();
+        service.addRemote(directory, "origin", directory.toString());
+        assertEquals(java.util.List.of("origin"), service.remotes(directory));
+        assertEquals(directory.toString(), service.remoteUrl(directory, "origin"));
+        service.renameRemote(directory, "origin", "upstream");
+        assertEquals(java.util.List.of("upstream"), service.remotes(directory));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.renameRemote(directory, "missing", "other"));
+        service.removeRemote(directory, "upstream");
+        assertTrue(service.remotes(directory).isEmpty());
+        assertThrows(IllegalArgumentException.class,
+                () -> service.addRemote(directory, "-invalid", directory.toString()));
+    }
     @Test void initializesAndClonesLocalRepository() throws Exception {
         var service = new RepositoryService();
         Path source = Files.createDirectory(directory.resolve("source"));
