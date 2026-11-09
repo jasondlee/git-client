@@ -15,6 +15,23 @@ class RepositoryServiceTest {
         String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         assertEquals(0, process.waitFor(), output);
     }
+    @Test void discardsOnlyWorkingChangesAndAddsIgnorePatterns() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
+        Files.writeString(directory.resolve("tracked.txt"), "initial\n");
+        git("add", "tracked.txt");
+        git("commit", "-m", "initial");
+        Files.writeString(directory.resolve("tracked.txt"), "edited\n");
+        var service = new RepositoryService();
+        service.discardChanges(directory, java.util.List.of("tracked.txt"));
+        assertEquals("initial\n", Files.readString(directory.resolve("tracked.txt")));
+        service.ignorePattern(directory, "*.tmp");
+        assertTrue(Files.readString(directory.resolve(".gitignore")).contains("*.tmp"));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.discardChanges(directory, java.util.List.of("../outside")));
+    }
     @Test void renamesBranchesAndCreatesAnnotatedTags() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
