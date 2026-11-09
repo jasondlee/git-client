@@ -15,6 +15,26 @@ class RepositoryServiceTest {
         String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         assertEquals(0, process.waitFor(), output);
     }
+    @Test void amendsLatestCommitWithoutCreatingAnother() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
+        Files.writeString(directory.resolve("tracked.txt"), "initial\n");
+        git("add", "tracked.txt");
+        git("commit", "-m", "old message");
+        var service = new RepositoryService();
+        String oldId = service.history(directory, 1).getFirst().id();
+        Files.writeString(directory.resolve("extra.txt"), "extra\n");
+        service.stage(directory, java.util.List.of("extra.txt"));
+        String newId = service.amendCommit(directory, "new message");
+        assertNotEquals(oldId, newId);
+        assertEquals(1, service.history(directory, 10).size());
+        assertEquals("new message", service.history(directory, 1).getFirst().subject());
+        assertTrue(Files.exists(directory.resolve("extra.txt")));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.amendCommit(directory, " "));
+    }
     @Test void addsAndRemovesLinkedWorktrees() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
