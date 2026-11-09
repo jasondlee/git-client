@@ -15,6 +15,19 @@ class RepositoryServiceTest {
         String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         assertEquals(0, process.waitFor(), output);
     }
+    @Test void listsAndFetchesLocalRemotes() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        Files.writeString(directory.resolve("tracked.txt"), "initial\n");
+        git("add", "tracked.txt");
+        git("commit", "-m", "initial");
+        git("remote", "add", "origin", directory.toString());
+        var service = new RepositoryService();
+        assertEquals(java.util.List.of("origin"), service.remotes(directory));
+        service.fetch(directory, "origin");
+        assertThrows(IllegalArgumentException.class, () -> service.fetch(directory, "missing"));
+    }
     @Test void createsAndDeletesLocalTags() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
