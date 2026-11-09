@@ -15,6 +15,28 @@ class RepositoryServiceTest {
         String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         assertEquals(0, process.waitFor(), output);
     }
+    @Test void previewsStagedAndUnstagedDiffsIndependently() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        Files.writeString(directory.resolve("example.txt"), "original\n");
+        git("add", "example.txt");
+        git("commit", "-m", "initial");
+        Files.writeString(directory.resolve("example.txt"), "staged version\n");
+        var service = new RepositoryService();
+        service.stage(directory, java.util.List.of("example.txt"));
+        Files.writeString(directory.resolve("example.txt"), "working version\n");
+        String staged = service.diff(directory, "example.txt", true);
+        String unstaged = service.diff(directory, "example.txt", false);
+        assertTrue(staged.contains("+staged version"), staged);
+        assertFalse(staged.contains("+working version"), staged);
+        assertTrue(unstaged.contains("+working version"), unstaged);
+        assertTrue(unstaged.contains("-staged version"), unstaged);
+        assertThrows(IllegalArgumentException.class,
+                () -> service.diff(directory, "../outside.txt", false));
+        Files.writeString(directory.resolve("new file.txt"), "untracked\n");
+        assertTrue(service.diff(directory, "new file.txt", false).contains("Untracked file"));
+    }
     @Test void stagesAndUnstagesSelectedPaths() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
