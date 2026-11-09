@@ -165,6 +165,21 @@ public final class RepositoryService {
                 StandardCharsets.UTF_8);
         return output.lines().filter(line -> !line.isBlank()).toList();
     }
+    public void renameBranch(Path directory, String oldName, String newName) {
+        validateBranchName(oldName);
+        validateBranchName(newName);
+        if (!branches(directory).contains(oldName)) {
+            throw new IllegalArgumentException("Unknown local branch: " + oldName);
+        }
+        git.run(findRepository(directory), "branch", "-m", oldName, newName);
+    }
+    public void createAnnotatedTag(Path directory, String name, String message) {
+        if (name == null || name.isBlank() || name.startsWith("-")
+                || message == null || message.isBlank()) {
+            throw new IllegalArgumentException("Tag name and message are required");
+        }
+        git.run(findRepository(directory), "tag", "-a", name, "-m", message);
+    }
     public void createTag(Path directory, String name) {
         if (name == null || name.isBlank() || name.startsWith("-")) {
             throw new IllegalArgumentException("Invalid tag name");
