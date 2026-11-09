@@ -107,6 +107,31 @@ public final class WorkspaceView extends BorderPane {
         });
         worktrees.setOnAction(e -> showTextReport("Worktrees",
                 () -> String.join("\n", repositories.worktrees(repository))));
+        Button reset = new Button("Reset...");
+        Button submodules = new Button("Submodules");
+        Button updateSubmodules = new Button("Update Submodules");
+        reset.setOnAction(e -> {
+            CommitInfo selected = history.getSelectionModel().getSelectedItem();
+            if (repository == null || selected == null) return;
+            ChoiceDialog<String> mode = new ChoiceDialog<>("mixed", "soft", "mixed", "hard");
+            mode.setTitle("Reset Branch");
+            mode.setHeaderText("Reset to " + selected.id().substring(0, 8));
+            mode.setContentText("Reset mode:");
+            mode.showAndWait().ifPresent(choice -> {
+                Path current = repository;
+                confirmOperation("Reset current branch to " + selected.id().substring(0, 8)
+                                + " (" + choice + ")? Hard reset discards working-tree changes.",
+                        () -> repositories.reset(current, selected.id(), choice));
+            });
+        });
+        submodules.setOnAction(e -> showTextReport("Submodules",
+                () -> String.join("\n", repositories.submodules(repository))));
+        updateSubmodules.setOnAction(e -> {
+            if (repository == null) return;
+            Path current = repository;
+            confirmOperation("Initialize and update submodules?",
+                    () -> repositories.updateSubmodules(current));
+        });
         Button createTag = new Button("New Tag");
         Button deleteTag = new Button("Delete Tag");
         createTag.setOnAction(e -> createTag());
@@ -165,7 +190,7 @@ public final class WorkspaceView extends BorderPane {
         ToolBar toolbar = new ToolBar(open, refresh, stage, unstage,
                 new Separator(), createBranch, branchSelector, switchBranch,
                 mergeBranch, abortMerge, deleteBranch, rebase, cherryPick, revert,
-                reflog, blame, worktrees,
+                reflog, blame, worktrees, reset, submodules, updateSubmodules,
                 new Separator(), createTag, tagSelector, deleteTag,
                 new Separator(), remoteSelector, fetch, pull, push,
                 new Separator(), stash, stashSelector, applyStash, dropStash,
