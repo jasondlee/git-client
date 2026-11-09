@@ -38,6 +38,24 @@ class RepositoryServiceTest {
         assertEquals("M", unstaged.files().stream().filter(f -> f.path().equals("tracked.txt"))
                 .findFirst().orElseThrow().worktreeStatus());
     }
+    @Test void commitsOnlyStagedChanges() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        Files.writeString(directory.resolve("staged.txt"), "staged\n");
+        Files.writeString(directory.resolve("unstaged.txt"), "unstaged\n");
+        var service = new RepositoryService();
+        assertThrows(IllegalArgumentException.class, () -> service.commit(directory, "  "));
+        assertThrows(IllegalStateException.class, () -> service.commit(directory, "nothing staged"));
+        service.stage(directory, java.util.List.of("staged.txt"));
+        String commitId = service.commit(directory, "first commit");
+        assertEquals(40, commitId.length());
+        assertEquals("first commit", service.history(directory, 1).getFirst().subject());
+        var changes = service.status(directory).files();
+        assertEquals(1, changes.size());
+        assertEquals("unstaged.txt", changes.getFirst().path());
+        assertThrows(IllegalStateException.class, () -> service.commit(directory, "again"));
+    }
     @Test void emptyRepositoryHasNoHistory() throws Exception {
         git("init", "-b", "master");
         var service = new RepositoryService();
