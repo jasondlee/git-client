@@ -15,6 +15,27 @@ class RepositoryServiceTest {
         String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         assertEquals(0, process.waitFor(), output);
     }
+    @Test void stashesAndRestoresWorkingChanges() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        Files.writeString(directory.resolve("tracked.txt"), "initial\n");
+        git("add", "tracked.txt");
+        git("commit", "-m", "initial");
+        Files.writeString(directory.resolve("tracked.txt"), "modified\n");
+        Files.writeString(directory.resolve("new.txt"), "untracked\n");
+        var service = new RepositoryService();
+        service.stash(directory, "work in progress");
+        assertTrue(service.status(directory).files().isEmpty());
+        assertEquals(1, service.stashes(directory).size());
+        service.applyStash(directory, "stash@{0}");
+        assertEquals("modified\n", Files.readString(directory.resolve("tracked.txt")));
+        assertTrue(Files.exists(directory.resolve("new.txt")));
+        service.dropStash(directory, "stash@{0}");
+        assertTrue(service.stashes(directory).isEmpty());
+        assertThrows(IllegalArgumentException.class,
+                () -> service.dropStash(directory, "--bad"));
+    }
     @Test void listsAndFetchesLocalRemotes() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
