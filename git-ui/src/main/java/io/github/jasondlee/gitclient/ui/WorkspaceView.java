@@ -40,8 +40,35 @@ public final class WorkspaceView extends BorderPane {
         stage.setOnAction(e -> changeStaging(false));
         unstage.setOnAction(e -> changeStaging(true));
         Button createBranch = new Button("New Branch");
+        Button mergeBranch = new Button("Merge");
+        Button abortMerge = new Button("Abort Merge");
+        Button deleteBranch = new Button("Delete Branch");
         Button switchBranch = new Button("Switch Branch");
         createBranch.setOnAction(e -> createBranch());
+        mergeBranch.setOnAction(e -> {
+            if (repository == null || branchSelector.getValue() == null) return;
+            Path current = repository;
+            String selected = branchSelector.getValue();
+            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
+                    "Merge '" + selected + "' into the current branch?", ButtonType.OK, ButtonType.CANCEL);
+            confirm.showAndWait().filter(button -> button == ButtonType.OK)
+                    .ifPresent(button -> runBranchAction(() -> repositories.merge(current, selected)));
+        });
+        abortMerge.setOnAction(e -> {
+            if (repository != null) {
+                Path current = repository;
+                runBranchAction(() -> repositories.abortMerge(current));
+            }
+        });
+        deleteBranch.setOnAction(e -> {
+            if (repository == null || branchSelector.getValue() == null) return;
+            Path current = repository;
+            String selected = branchSelector.getValue();
+            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
+                    "Delete merged local branch '" + selected + "'?", ButtonType.OK, ButtonType.CANCEL);
+            confirm.showAndWait().filter(button -> button == ButtonType.OK)
+                    .ifPresent(button -> runBranchAction(() -> repositories.deleteBranch(current, selected)));
+        });
         switchBranch.setOnAction(e -> switchBranch());
         branchSelector.setPromptText("Local branches");
         Button createTag = new Button("New Tag");
@@ -101,6 +128,7 @@ public final class WorkspaceView extends BorderPane {
         stashSelector.setPromptText("Stashes");
         ToolBar toolbar = new ToolBar(open, refresh, stage, unstage,
                 new Separator(), createBranch, branchSelector, switchBranch,
+                mergeBranch, abortMerge, deleteBranch,
                 new Separator(), createTag, tagSelector, deleteTag,
                 new Separator(), remoteSelector, fetch, pull, push,
                 new Separator(), stash, stashSelector, applyStash, dropStash,
