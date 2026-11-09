@@ -239,6 +239,20 @@ public final class RepositoryService {
             throw new IllegalArgumentException("Invalid Git reference");
         }
     }
+    public List<String> remoteBranches(Path directory) {
+        String output = new String(git.run(findRepository(directory), "branch",
+                "--remotes", "--format=%(refname:short)"), StandardCharsets.UTF_8);
+        return output.lines().filter(line -> !line.isBlank()
+                && !line.contains(" -> ")).toList();
+    }
+    public void createTrackingBranch(Path directory, String localName, String remoteBranch) {
+        validateBranchName(localName);
+        validateBranchName(remoteBranch);
+        if (!remoteBranches(directory).contains(remoteBranch)) {
+            throw new IllegalArgumentException("Unknown remote-tracking branch: " + remoteBranch);
+        }
+        git.run(findRepository(directory), "branch", "--track", localName, remoteBranch);
+    }
     public void renameBranch(Path directory, String oldName, String newName) {
         validateBranchName(oldName);
         validateBranchName(newName);
