@@ -15,6 +15,28 @@ class RepositoryServiceTest {
         String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         assertEquals(0, process.waitFor(), output);
     }
+    @Test void managesLocalConfigurationAndReset() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        Files.writeString(directory.resolve("tracked.txt"), "first\n");
+        git("add", "tracked.txt");
+        git("commit", "-m", "first");
+        var service = new RepositoryService();
+        String first = service.history(directory, 1).getFirst().id();
+        service.setConfiguration(directory, "user.name", "Another Author");
+        assertEquals("Another Author", service.configuration(directory, "user.name"));
+        Files.writeString(directory.resolve("tracked.txt"), "second\n");
+        git("add", "tracked.txt");
+        git("commit", "-m", "second");
+        service.reset(directory, first, "hard");
+        assertEquals("first\n", Files.readString(directory.resolve("tracked.txt")));
+        assertEquals(first, service.history(directory, 1).getFirst().id());
+        assertThrows(IllegalArgumentException.class,
+                () -> service.reset(directory, first, "invalid"));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.setConfiguration(directory, "--bad", "x"));
+    }
     @Test void exposesReflogBlameAndWorktrees() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
