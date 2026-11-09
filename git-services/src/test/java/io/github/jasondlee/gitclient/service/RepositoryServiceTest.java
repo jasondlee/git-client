@@ -15,6 +15,32 @@ class RepositoryServiceTest {
         String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         assertEquals(0, process.waitFor(), output);
     }
+    @Test void detectsMergeConflictsAndAbortsSafely() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
+        Files.writeString(directory.resolve("conflict.txt"), "base\n");
+        git("add", "conflict.txt");
+        git("commit", "-m", "base");
+        var service = new RepositoryService();
+        service.createBranch(directory, "feature");
+        Files.writeString(directory.resolve("conflict.txt"), "master change\n");
+        git("add", "conflict.txt");
+        git("commit", "-m", "master change");
+        service.switchBranch(directory, "feature");
+        Files.writeString(directory.resolve("conflict.txt"), "feature change\n");
+        git("add", "conflict.txt");
+        git("commit", "-m", "feature change");
+        assertThrows(RuntimeException.class, () -> service.merge(directory, "master"));
+        assertEquals("MERGE", service.operationState(directory));
+        assertEquals(java.util.List.of("conflict.txt"), service.conflictedFiles(directory));
+        assertThrows(IllegalStateException.class, () -> service.continueMerge(directory));
+        service.abortMerge(directory);
+        assertEquals("NONE", service.operationState(directory));
+        assertTrue(service.conflictedFiles(directory).isEmpty());
+        assertEquals("feature change\n", Files.readString(directory.resolve("conflict.txt")));
+    }
     @Test void managesLocalConfigurationAndReset() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
