@@ -212,6 +212,44 @@ public final class WorkspaceView extends BorderPane {
             showTextReport("HEAD vs " + target,
                     () -> repositories.compare(current, "HEAD", target));
         });
+        Button startBisect = new Button("Start Bisect");
+        Button bisectGood = new Button("Bisect Good");
+        Button bisectBad = new Button("Bisect Bad");
+        Button resetBisect = new Button("End Bisect");
+        startBisect.setOnAction(e -> {
+            if (repository == null) return;
+            TextInputDialog badDialog = new TextInputDialog();
+            badDialog.setTitle("Start Git Bisect");
+            badDialog.setHeaderText("Identify a known bad commit");
+            badDialog.setContentText("Bad commit hash:");
+            badDialog.showAndWait().ifPresent(bad -> {
+                TextInputDialog goodDialog = new TextInputDialog();
+                goodDialog.setTitle("Start Git Bisect");
+                goodDialog.setHeaderText("Identify an earlier known good commit");
+                goodDialog.setContentText("Good commit hash:");
+                goodDialog.showAndWait().ifPresent(good -> {
+                    Path current = repository;
+                    confirmOperation("Start bisect? Git will check out commits during the search.",
+                            () -> repositories.startBisect(current, bad, good));
+                });
+            });
+        });
+        bisectGood.setOnAction(e -> {
+            if (repository == null) return;
+            Path current = repository;
+            runBranchAction(() -> repositories.markBisect(current, true));
+        });
+        bisectBad.setOnAction(e -> {
+            if (repository == null) return;
+            Path current = repository;
+            runBranchAction(() -> repositories.markBisect(current, false));
+        });
+        resetBisect.setOnAction(e -> {
+            if (repository == null) return;
+            Path current = repository;
+            confirmOperation("End bisect and restore the original branch?",
+                    () -> repositories.resetBisect(current));
+        });
         Button reflog = new Button("Reflog");
         Button blame = new Button("Blame File");
         Button worktrees = new Button("Worktrees");
@@ -470,7 +508,8 @@ public final class WorkspaceView extends BorderPane {
                 remoteBranches, trackingBranch, switchBranch,
                 mergeBranch, abortMerge, deleteBranch, rebase);
         MenuButton historyMenu = actionsMenu("History", cherryPick, revert, compare,
-                fileHistory, searchHistory, reflog,
+                fileHistory, searchHistory, startBisect, bisectGood, bisectBad,
+                resetBisect, reflog,
                 blame, reset);
         MenuButton operationsMenu = actionsMenu("Operations", continueOperation,
                 abortOperation, skipRebase, conflicts);
