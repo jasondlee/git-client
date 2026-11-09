@@ -15,6 +15,28 @@ class RepositoryServiceTest {
         String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         assertEquals(0, process.waitFor(), output);
     }
+    @Test void cherryPicksAndRevertsCommit() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        Files.writeString(directory.resolve("base.txt"), "base\n");
+        git("add", "base.txt");
+        git("commit", "-m", "base");
+        var service = new RepositoryService();
+        service.createBranch(directory, "feature");
+        service.switchBranch(directory, "feature");
+        Files.writeString(directory.resolve("feature.txt"), "feature\n");
+        git("add", "feature.txt");
+        git("commit", "-m", "feature");
+        String id = service.history(directory, 1).getFirst().id();
+        service.switchBranch(directory, "master");
+        service.cherryPick(directory, id);
+        assertTrue(Files.exists(directory.resolve("feature.txt")));
+        service.revert(directory, service.history(directory, 1).getFirst().id());
+        assertFalse(Files.exists(directory.resolve("feature.txt")));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.cherryPick(directory, "--bad"));
+    }
     @Test void displaysCommitPatch() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
