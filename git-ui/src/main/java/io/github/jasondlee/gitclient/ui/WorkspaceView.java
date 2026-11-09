@@ -16,6 +16,9 @@ public final class WorkspaceView extends BorderPane {
     private final TableView<ChangedFile> status = new TableView<>();
     private final ListView<CommitInfo> history = new ListView<>();
     private final Label message = new Label("Choose Open Repository to begin.");
+    private final TextArea commitMessage = new TextArea();
+    private final Button commitButton = new Button("Commit Staged");
+    private boolean operationRunning;
     private Path repository;
     private long refreshGeneration;
 
@@ -51,8 +54,14 @@ public final class WorkspaceView extends BorderPane {
         VBox.setVgrow(history, Priority.ALWAYS);
         setCenter(panes);
         BorderPane.setMargin(panes, new Insets(8));
-        setBottom(message);
-        BorderPane.setMargin(message, new Insets(8));
+        commitMessage.setPromptText("Commit message");
+        commitMessage.setPrefRowCount(3);
+        commitButton.setOnAction(e -> commit());
+        commitButton.disableProperty().bind(commitMessage.textProperty().isEmpty());
+        VBox commitPane = new VBox(6, new Label("Commit staged changes"), commitMessage,
+                commitButton, message);
+        commitPane.setPadding(new Insets(8));
+        setBottom(commitPane);
     }
     private void changeStaging(boolean unstage) {
         Path current = repository;
@@ -71,6 +80,35 @@ public final class WorkspaceView extends BorderPane {
                 Platform.runLater(this::refresh);
             } catch (Exception ex) {
                 Platform.runLater(() -> message.setText("Error: " + ex.getMessage()));
+            }
+        });
+    }
+    private void commit() {
+        Path current = repository;
+        if (current == null || operationRunning) return;
+        String text = commitMessage.getText();
+        if (text.isBlank()) {
+            message.setText("Enter a commit message.");
+            return;
+        }
+        operationRunning = true;
+        commitButton.setDisable(true);
+        message.setText("Committing...");
+        Thread.startVirtualThread(() -> {
+            try {
+                String id = repositories.commit(current, text);
+                Platform.runLater(() -> {
+                    operationRunning = false;
+                    commitMessage.clear();
+                    message.setText("Committed " + id.substring(0, 8));
+                    refresh();
+                });
+            } catch (Exception ex) {
+                Platform.runLater(() -> {
+                    operationRunning = false;
+                    commitButton.setDisable(false);
+                    message.setText("Commit failed: " + ex.getMessage());
+                });
             }
         });
     }
