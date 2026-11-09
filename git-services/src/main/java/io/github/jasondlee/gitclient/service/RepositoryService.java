@@ -121,6 +121,20 @@ public final class RepositoryService {
         }
         git.run(findRepository(directory), "tag", "-d", name);
     }
+    public void merge(Path directory, String branchName) {
+        validateBranchName(branchName);
+        if (!branches(directory).contains(branchName)) {
+            throw new IllegalArgumentException("Unknown local branch: " + branchName);
+        }
+        git.run(findRepository(directory), "merge", "--no-edit", branchName);
+    }
+    public void abortMerge(Path directory) {
+        git.run(findRepository(directory), "merge", "--abort");
+    }
+    public void deleteBranch(Path directory, String branchName) {
+        validateBranchName(branchName);
+        git.run(findRepository(directory), "branch", "-d", branchName);
+    }
     public List<String> branches(Path directory) {
         String output = new String(git.run(findRepository(directory), "branch", "--list",
                 "--format=%(refname:short)"), StandardCharsets.UTF_8);
