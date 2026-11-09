@@ -177,6 +177,35 @@ public final class WorkspaceView extends BorderPane {
         Button reflog = new Button("Reflog");
         Button blame = new Button("Blame File");
         Button worktrees = new Button("Worktrees");
+        Button addWorktree = new Button("Add Worktree");
+        Button removeWorktree = new Button("Remove Worktree");
+        addWorktree.setOnAction(e -> {
+            if (repository == null || branchSelector.getValue() == null) return;
+            String selectedBranch = branchSelector.getValue();
+            DirectoryChooser chooser = new DirectoryChooser();
+            chooser.setTitle("Choose parent directory for new worktree");
+            java.io.File parent = chooser.showDialog(getScene().getWindow());
+            if (parent == null) return;
+            TextInputDialog dialog = new TextInputDialog(selectedBranch.replace('/', '-'));
+            dialog.setTitle("Add Worktree");
+            dialog.setHeaderText("New worktree for " + selectedBranch);
+            dialog.setContentText("New folder name:");
+            dialog.showAndWait().ifPresent(folder -> {
+                if (folder.isBlank() || folder.equals(".") || folder.equals("..")
+                        || folder.contains("/") || folder.contains("\\\\")) {
+                    message.setText("Invalid worktree folder name");
+                    return;
+                }
+                Path current = repository;
+                Path destination = parent.toPath().resolve(folder);
+                runBranchAction(() -> repositories.addWorktree(current, destination, selectedBranch));
+            });
+        });
+        removeWorktree.setOnAction(e -> {
+            if (repository == null) return;
+            Path current = repository;
+            showWorktreeRemovalDialog(current);
+        });
         reflog.setOnAction(e -> showTextReport("Reflog",
                 () -> String.join("\n", repositories.reflog(repository, 100))));
         blame.setOnAction(e -> {
@@ -390,7 +419,7 @@ public final class WorkspaceView extends BorderPane {
         MenuButton remoteMenu = actionsMenu("Remotes", addRemote, renameRemote,
                 removeRemote, remoteDetails);
         MenuButton advancedMenu = actionsMenu("Advanced", exportPatch, applyPatch,
-                configView, worktrees, submodules,
+                configView, worktrees, addWorktree, removeWorktree, submodules,
                 updateSubmodules, createTag, annotatedTag, deleteTag, stash, applyStash, dropStash);
         ToolBar toolbar = new ToolBar(open, initialize, clone, refresh, stage, unstage,
                 discard, ignore,
@@ -450,6 +479,31 @@ public final class WorkspaceView extends BorderPane {
                 commitButton, message);
         commitPane.setPadding(new Insets(8));
         setBottom(commitPane);
+    }
+    private void showWorktreeRemovalDialog(Path current) {
+        Thread.startVirtualThread(() -> {
+            try {
+                var paths = repositories.worktrees(current).stream()
+                        .filter(path -> !Path.of(path).toAbsolutePath().normalize()
+                                .equals(current.toAbsolutePath().normalize()))
+                        .toList();
+                Platform.runLater(() -> {
+                    if (paths.isEmpty()) {
+                        message.setText("No linked worktrees to remove.");
+                        return;
+                    }
+                    ChoiceDialog<String> dialog = new ChoiceDialog<>(paths.getFirst(), paths);
+                    dialog.setTitle("Remove Worktree");
+                    dialog.setHeaderText("Select a linked worktree");
+                    dialog.showAndWait().ifPresent(selected ->
+                            confirmOperation("Remove worktree at " + selected
+                                            + "? Git refuses removal if it contains changes.",
+                                    () -> repositories.removeWorktree(current, Path.of(selected))));
+                });
+            } catch (Exception ex) {
+                Platform.runLater(() -> message.setText("Worktrees: " + ex.getMessage()));
+            }
+        });
     }
     private MenuButton actionsMenu(String title, Button... actions) {
         MenuButton menu = new MenuButton(title);
