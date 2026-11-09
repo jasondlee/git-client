@@ -166,6 +166,44 @@ public final class RepositoryService {
         git.run(root, "commit", "-m", message);
         return new String(git.run(root, "rev-parse", "HEAD"), StandardCharsets.UTF_8).strip();
     }
+    public void cherryPick(Path directory, String commitId) {
+        validateCommitId(commitId);
+        git.run(findRepository(directory), "cherry-pick", commitId);
+    }
+    public void revert(Path directory, String commitId) {
+        validateCommitId(commitId);
+        git.run(findRepository(directory), "revert", "--no-edit", commitId);
+    }
+    public void continueCherryPick(Path directory) {
+        git.run(findRepository(directory), "cherry-pick", "--continue");
+    }
+    public void abortCherryPick(Path directory) {
+        git.run(findRepository(directory), "cherry-pick", "--abort");
+    }
+    public void abortRevert(Path directory) {
+        git.run(findRepository(directory), "revert", "--abort");
+    }
+    public void rebase(Path directory, String branchName) {
+        validateBranchName(branchName);
+        if (!branches(directory).contains(branchName)) {
+            throw new IllegalArgumentException("Unknown local branch: " + branchName);
+        }
+        git.run(findRepository(directory), "rebase", branchName);
+    }
+    public void continueRebase(Path directory) {
+        git.run(findRepository(directory), "rebase", "--continue");
+    }
+    public void skipRebase(Path directory) {
+        git.run(findRepository(directory), "rebase", "--skip");
+    }
+    public void abortRebase(Path directory) {
+        git.run(findRepository(directory), "rebase", "--abort");
+    }
+    private void validateCommitId(String commitId) {
+        if (commitId == null || !commitId.matches("[0-9a-fA-F]{7,64}")) {
+            throw new IllegalArgumentException("Invalid commit ID");
+        }
+    }
     public String showCommit(Path directory, String commitId) {
         if (commitId == null || !commitId.matches("[0-9a-fA-F]{7,64}")) {
             throw new IllegalArgumentException("Invalid commit ID");
