@@ -40,6 +40,26 @@ public final class RepositoryService {
         }
         git.run(root, command.toArray(String[]::new));
     }
+    /** Returns a unified diff for one repository-relative path. */
+    public String diff(Path directory, String path, boolean staged) {
+        Path root = findRepository(directory);
+        if (path == null || path.isBlank() || Path.of(path).isAbsolute()
+                || !root.resolve(path).normalize().startsWith(root)) {
+            throw new IllegalArgumentException("Invalid repository-relative path: " + path);
+        }
+        List<String> args = new ArrayList<>(List.of("diff", "--no-ext-diff",
+                "--no-color", "--find-renames"));
+        if (staged) args.add("--cached");
+        args.add("--");
+        args.add(path);
+        String result = new String(git.run(root, args.toArray(String[]::new)),
+                StandardCharsets.UTF_8);
+        if (!staged && result.isEmpty() && status(root).files().stream()
+                .anyMatch(file -> file.path().equals(path) && file.indexStatus().equals("?"))) {
+            return "Untracked file: stage this file to preview its diff.";
+        }
+        return result;
+    }
     /** Commit staged changes only, preserving unstaged working-tree edits. */
     public String commit(Path directory, String message) {
         if (message == null || message.isBlank()) {
