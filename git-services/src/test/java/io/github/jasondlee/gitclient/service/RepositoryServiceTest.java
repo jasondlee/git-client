@@ -15,6 +15,27 @@ class RepositoryServiceTest {
         String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         assertEquals(0, process.waitFor(), output);
     }
+    @Test void exportsAndAppliesCommitPatch() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
+        Files.writeString(directory.resolve("base.txt"), "base\n");
+        git("add", "base.txt");
+        git("commit", "-m", "base");
+        Files.writeString(directory.resolve("added.txt"), "patch content\n");
+        git("add", "added.txt");
+        git("commit", "-m", "add file");
+        var service = new RepositoryService();
+        String id = service.history(directory, 1).getFirst().id();
+        Path patchFile = directory.resolve("export.patch");
+        Files.writeString(patchFile, service.createPatch(directory, id));
+        assertTrue(Files.readString(patchFile).contains("patch content"));
+        git("reset", "--hard", "HEAD~1");
+        service.applyPatch(directory, patchFile);
+        assertEquals("patch content\n", Files.readString(directory.resolve("added.txt")));
+        assertFalse(service.gitConfiguration(directory).isEmpty());
+    }
     @Test void searchesCommitsAndFileHistory() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
