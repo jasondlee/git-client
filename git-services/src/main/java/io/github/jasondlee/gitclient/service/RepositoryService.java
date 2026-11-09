@@ -88,7 +88,7 @@ public final class RepositoryService {
         git.run(findRepository(directory), "stash", "drop", reference);
     }
     private void validateStashReference(String reference) {
-        if (reference == null || !reference.matches("stash@\\{[0-9]+}")) {
+        if (reference == null || !reference.matches("stash@[{][0-9]+[}]")) {
             throw new IllegalArgumentException("Invalid stash reference");
         }
     }
