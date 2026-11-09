@@ -28,6 +28,7 @@ public final class WorkspaceView extends BorderPane {
     private final Label message = new Label("Choose Open Repository to begin.");
     private final TextArea commitMessage = new TextArea();
     private final Button commitButton = new Button("Commit Staged");
+    private final CheckBox amend = new CheckBox("Amend last commit");
     private final SimpleBooleanProperty operationRunning = new SimpleBooleanProperty(false);
     private Path repository;
     private long refreshGeneration;
@@ -474,9 +475,10 @@ public final class WorkspaceView extends BorderPane {
         commitMessage.setPromptText("Commit message");
         commitMessage.setPrefRowCount(3);
         commitButton.setOnAction(e -> commit());
+        amend.setOnAction(e -> commitButton.setText(amend.isSelected() ? "Amend Commit" : "Commit Staged"));
         commitButton.disableProperty().bind(commitMessage.textProperty().isEmpty().or(operationRunning));
         VBox commitPane = new VBox(6, new Label("Commit staged changes"), commitMessage,
-                commitButton, message);
+                amend, commitButton, message);
         commitPane.setPadding(new Insets(8));
         setBottom(commitPane);
     }
@@ -681,18 +683,28 @@ public final class WorkspaceView extends BorderPane {
         Path current = repository;
         if (current == null || operationRunning.get()) return;
         String text = commitMessage.getText();
+        boolean amending = amend.isSelected();
         if (text.isBlank()) {
             message.setText("Enter a commit message.");
             return;
+        }
+        if (amending) {
+            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
+                    "Amending rewrites the latest commit. Avoid amending commits already pushed to others.",
+                    ButtonType.OK, ButtonType.CANCEL);
+            if (confirm.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) return;
         }
         operationRunning.set(true);
         message.setText("Committing...");
         Thread.startVirtualThread(() -> {
             try {
-                String id = repositories.commit(current, text);
+                String id = amending ? repositories.amendCommit(current, text)
+                        : repositories.commit(current, text);
                 Platform.runLater(() -> {
                     operationRunning.set(false);
                     commitMessage.clear();
+                    amend.setSelected(false);
+                    commitButton.setText("Commit Staged");
                     message.setText("Committed " + id.substring(0, 8));
                     refresh();
                 });
