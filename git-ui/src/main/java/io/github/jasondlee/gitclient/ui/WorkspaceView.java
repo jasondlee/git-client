@@ -202,15 +202,20 @@ public final class WorkspaceView extends BorderPane {
                     });
         });
         stashSelector.setPromptText("Stashes");
+        MenuButton branchesMenu = actionsMenu("Branches", createBranch, switchBranch,
+                mergeBranch, abortMerge, deleteBranch, rebase);
+        MenuButton historyMenu = actionsMenu("History", cherryPick, revert, reflog,
+                blame, reset);
+        MenuButton operationsMenu = actionsMenu("Operations", continueOperation,
+                abortOperation, skipRebase, conflicts);
+        MenuButton advancedMenu = actionsMenu("Advanced", worktrees, submodules,
+                updateSubmodules, createTag, deleteTag, stash, applyStash, dropStash);
         ToolBar toolbar = new ToolBar(open, refresh, stage, unstage,
-                new Separator(), createBranch, branchSelector, switchBranch,
-                mergeBranch, abortMerge, deleteBranch, rebase, cherryPick, revert,
-                reflog, blame, worktrees, reset, submodules, updateSubmodules,
-                operationState, continueOperation, abortOperation, skipRebase, conflicts,
-                new Separator(), createTag, tagSelector, deleteTag,
+                new Separator(), branchSelector, branchesMenu,
+                new Separator(), historyMenu, operationsMenu, advancedMenu,
+                new Separator(), tagSelector, stashSelector,
                 new Separator(), remoteSelector, fetch, pull, push,
-                new Separator(), stash, stashSelector, applyStash, dropStash,
-                new Separator(), location, new Separator(), branch);
+                new Separator(), branch, location);
         setTop(toolbar);
         TableColumn<ChangedFile,String> path = new TableColumn<>("File");
         path.setCellValueFactory(c -> new ReadOnlyStringWrapper(c.getValue().path()));
@@ -262,6 +267,15 @@ public final class WorkspaceView extends BorderPane {
                 commitButton, message);
         commitPane.setPadding(new Insets(8));
         setBottom(commitPane);
+    }
+    private MenuButton actionsMenu(String title, Button... actions) {
+        MenuButton menu = new MenuButton(title);
+        for (Button action : actions) {
+            MenuItem item = new MenuItem(action.getText());
+            item.setOnAction(event -> action.fire());
+            menu.getItems().add(item);
+        }
+        return menu;
     }
     private void operateOnSequencer(boolean abort) {
         if (repository == null) return;
