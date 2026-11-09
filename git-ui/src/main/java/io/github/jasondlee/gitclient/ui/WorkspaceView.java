@@ -219,6 +219,7 @@ public final class WorkspaceView extends BorderPane {
         Button exportPatch = new Button("Export Commit Patch");
         Button applyPatch = new Button("Apply Patch");
         Button configView = new Button("Local Config");
+        Button configEdit = new Button("Edit Local Config");
         exportPatch.setOnAction(e -> {
             CommitInfo selected = history.getSelectionModel().getSelectedItem();
             if (repository == null || selected == null) return;
@@ -247,6 +248,24 @@ public final class WorkspaceView extends BorderPane {
             Path current = repository;
             confirmOperation("Apply patch " + patch.getName() + " to working tree?",
                     () -> repositories.applyPatch(current, patch.toPath()));
+        });
+        configEdit.setOnAction(e -> {
+            if (repository == null) return;
+            TextInputDialog keyDialog = new TextInputDialog("user.name");
+            keyDialog.setTitle("Edit Local Git Configuration");
+            keyDialog.setHeaderText("Choose a repository-local configuration key");
+            keyDialog.setContentText("Key:");
+            keyDialog.showAndWait().ifPresent(key -> {
+                TextInputDialog valueDialog = new TextInputDialog();
+                valueDialog.setTitle("Edit Local Git Configuration");
+                valueDialog.setHeaderText(key);
+                valueDialog.setContentText("New value:");
+                valueDialog.showAndWait().ifPresent(value -> {
+                    Path current = repository;
+                    confirmOperation("Set local Git configuration '" + key + "'?",
+                            () -> repositories.setConfiguration(current, key, value));
+                });
+            });
         });
         configView.setOnAction(e -> {
             if (repository == null) return;
@@ -420,7 +439,7 @@ public final class WorkspaceView extends BorderPane {
         MenuButton remoteMenu = actionsMenu("Remotes", addRemote, renameRemote,
                 removeRemote, remoteDetails);
         MenuButton advancedMenu = actionsMenu("Advanced", exportPatch, applyPatch,
-                configView, worktrees, addWorktree, removeWorktree, submodules,
+                configView, configEdit, worktrees, addWorktree, removeWorktree, submodules,
                 updateSubmodules, createTag, annotatedTag, deleteTag, stash, applyStash, dropStash);
         ToolBar toolbar = new ToolBar(open, initialize, clone, refresh, stage, unstage,
                 discard, ignore,
