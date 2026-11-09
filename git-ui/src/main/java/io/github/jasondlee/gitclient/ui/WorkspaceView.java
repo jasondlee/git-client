@@ -159,8 +159,13 @@ public final class WorkspaceView extends BorderPane {
         Tab stagedTab = new Tab("Staged");
         unstagedTab.setClosable(false);
         stagedTab.setClosable(false);
-        diffTabs.getTabs().addAll(unstagedTab, stagedTab);
+        Tab commitTab = new Tab("Commit Details");
+        commitTab.setClosable(false);
+        diffTabs.getTabs().addAll(unstagedTab, stagedTab, commitTab);
         diffTabs.getSelectionModel().selectedItemProperty().addListener((observable, oldTab, newTab) -> loadDiff());
+        history.getSelectionModel().selectedItemProperty().addListener((observable, oldCommit, newCommit) -> {
+            if (diffTabs.getSelectionModel().getSelectedIndex() == 2) loadDiff();
+        });
         VBox diffPanel = new VBox(6, diffTabs, diffPreview);
         diffPanel.setPadding(new Insets(8));
         VBox.setVgrow(diffPreview, Priority.ALWAYS);
@@ -227,6 +232,10 @@ public final class WorkspaceView extends BorderPane {
         });
     }
     private void loadDiff() {
+        if (diffTabs.getSelectionModel().getSelectedIndex() == 2) {
+            loadCommitDetails();
+            return;
+        }
         ChangedFile selected = status.getSelectionModel().getSelectedItem();
         Path current = repository;
         long generation = ++diffGeneration;
@@ -247,6 +256,28 @@ public final class WorkspaceView extends BorderPane {
             } catch (Exception ex) {
                 Platform.runLater(() -> {
                     if (generation == diffGeneration) diffPreview.setText("Diff error: " + ex.getMessage());
+                });
+            }
+        });
+    }
+    private void loadCommitDetails() {
+        CommitInfo selected = history.getSelectionModel().getSelectedItem();
+        Path current = repository;
+        long generation = ++diffGeneration;
+        if (selected == null || current == null) {
+            diffPreview.setText("Select a commit to view its details.");
+            return;
+        }
+        diffPreview.setText("Loading commit...");
+        Thread.startVirtualThread(() -> {
+            try {
+                String details = repositories.showCommit(current, selected.id());
+                Platform.runLater(() -> {
+                    if (generation == diffGeneration) diffPreview.setText(details);
+                });
+            } catch (Exception ex) {
+                Platform.runLater(() -> {
+                    if (generation == diffGeneration) diffPreview.setText("Commit error: " + ex.getMessage());
                 });
             }
         });
