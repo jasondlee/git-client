@@ -15,6 +15,20 @@ class RepositoryServiceTest {
         String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         assertEquals(0, process.waitFor(), output);
     }
+    @Test void exposesReflogBlameAndWorktrees() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        Files.writeString(directory.resolve("tracked.txt"), "initial\n");
+        git("add", "tracked.txt");
+        git("commit", "-m", "initial");
+        var service = new RepositoryService();
+        assertTrue(service.reflog(directory, 10).stream().anyMatch(s -> s.contains("initial")));
+        assertTrue(service.blame(directory, "tracked.txt").contains("initial"));
+        assertFalse(service.worktrees(directory).isEmpty());
+        assertThrows(IllegalArgumentException.class,
+                () -> service.blame(directory, "../outside.txt"));
+    }
     @Test void cherryPicksAndRevertsCommit() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
