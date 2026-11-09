@@ -14,6 +14,32 @@ public final class RepositoryService {
     public RepositoryStatus status(Path directory) {
         return statusParser.parse(git.run(directory, "status", "--porcelain=v2", "--branch", "-z"));
     }
+    /** Stage the entire current contents of the selected paths. */
+    public void stage(Path directory, List<String> paths) {
+        updateIndex(directory, paths, false);
+    }
+    /** Reset selected paths in the index to HEAD, leaving working files untouched. */
+    public void unstage(Path directory, List<String> paths) {
+        updateIndex(directory, paths, true);
+    }
+    private void updateIndex(Path directory, List<String> paths, boolean unstage) {
+        if (paths.isEmpty()) return;
+        Path root = findRepository(directory);
+        List<String> command = new ArrayList<>();
+        if (unstage) {
+            command.addAll(List.of("reset", "-q", "--"));
+        } else {
+            command.addAll(List.of("add", "-A", "--"));
+        }
+        for (String path : paths) {
+            Path candidate = root.resolve(path).normalize();
+            if (path.isBlank() || Path.of(path).isAbsolute() || !candidate.startsWith(root)) {
+                throw new IllegalArgumentException("Invalid repository-relative path: " + path);
+            }
+            command.add(path);
+        }
+        git.run(root, command.toArray(String[]::new));
+    }
     public List<CommitInfo> history(Path directory, int count) {
         if (count <= 0) return List.of();
         String status = new String(git.run(directory, "status", "--porcelain=v2", "--branch", "-z"), StandardCharsets.UTF_8);
