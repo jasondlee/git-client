@@ -16,6 +16,7 @@ public final class WorkspaceView extends BorderPane {
     private final Label branch = new Label("");
     private final ComboBox<String> branchSelector = new ComboBox<>();
     private final ComboBox<String> tagSelector = new ComboBox<>();
+    private final ComboBox<String> remoteSelector = new ComboBox<>();
     private final TableView<ChangedFile> status = new TableView<>();
     private final ListView<CommitInfo> history = new ListView<>();
     private final TextArea diffPreview = new TextArea();
@@ -47,9 +48,18 @@ public final class WorkspaceView extends BorderPane {
         createTag.setOnAction(e -> createTag());
         deleteTag.setOnAction(e -> deleteTag());
         tagSelector.setPromptText("Local tags");
+        Button fetch = new Button("Fetch");
+        fetch.setOnAction(e -> {
+            if (repository == null || remoteSelector.getValue() == null) return;
+            Path current = repository;
+            String remote = remoteSelector.getValue();
+            runBranchAction(() -> repositories.fetch(current, remote));
+        });
+        remoteSelector.setPromptText("Remote");
         ToolBar toolbar = new ToolBar(open, refresh, stage, unstage,
                 new Separator(), createBranch, branchSelector, switchBranch,
                 new Separator(), createTag, tagSelector, deleteTag,
+                new Separator(), remoteSelector, fetch,
                 new Separator(), location, new Separator(), branch);
         setTop(toolbar);
         TableColumn<ChangedFile,String> path = new TableColumn<>("File");
@@ -231,6 +241,7 @@ public final class WorkspaceView extends BorderPane {
                 var commits = repositories.history(root, 100);
                 var branches = repositories.branches(root);
                 var tags = repositories.tags(root);
+                var remotes = repositories.remotes(root);
                 Platform.runLater(() -> {
                     if (generation != refreshGeneration) return;
                     repository = root;
@@ -239,6 +250,10 @@ public final class WorkspaceView extends BorderPane {
                     branchSelector.getItems().setAll(branches);
                     branchSelector.setValue(snapshot.branch());
                     tagSelector.getItems().setAll(tags);
+                    String selectedRemote = remoteSelector.getValue();
+                    remoteSelector.getItems().setAll(remotes);
+                    if (remotes.contains(selectedRemote)) remoteSelector.setValue(selectedRemote);
+                    else if (!remotes.isEmpty()) remoteSelector.setValue(remotes.getFirst());
                     status.getItems().setAll(snapshot.files());
                     history.getItems().setAll(commits);
                     loadDiff();
