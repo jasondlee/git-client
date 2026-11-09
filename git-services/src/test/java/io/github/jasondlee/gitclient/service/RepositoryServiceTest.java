@@ -15,6 +15,24 @@ class RepositoryServiceTest {
         String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         assertEquals(0, process.waitFor(), output);
     }
+    @Test void renamesBranchesAndCreatesAnnotatedTags() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
+        Files.writeString(directory.resolve("tracked.txt"), "initial\n");
+        git("add", "tracked.txt");
+        git("commit", "-m", "initial");
+        var service = new RepositoryService();
+        service.createBranch(directory, "old-name");
+        service.renameBranch(directory, "old-name", "new-name");
+        assertTrue(service.branches(directory).contains("new-name"));
+        assertFalse(service.branches(directory).contains("old-name"));
+        service.createAnnotatedTag(directory, "v1.0", "Release version one");
+        assertTrue(service.tags(directory).contains("v1.0"));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.createAnnotatedTag(directory, "v2.0", " "));
+    }
     @Test void managesRemoteNamesAndUrls() throws Exception {
         git("init", "-b", "master");
         var service = new RepositoryService();
