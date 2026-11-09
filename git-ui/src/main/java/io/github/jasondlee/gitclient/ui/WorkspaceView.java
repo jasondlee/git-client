@@ -45,6 +45,18 @@ public final class WorkspaceView extends BorderPane {
         stage.setOnAction(e -> changeStaging(false));
         unstage.setOnAction(e -> changeStaging(true));
         Button createBranch = new Button("New Branch");
+        Button renameBranch = new Button("Rename Branch");
+        renameBranch.setOnAction(e -> {
+            if (repository == null || branchSelector.getValue() == null) return;
+            String oldName = branchSelector.getValue();
+            TextInputDialog dialog = new TextInputDialog(oldName);
+            dialog.setTitle("Rename Branch");
+            dialog.setContentText("New branch name:");
+            dialog.showAndWait().ifPresent(newName -> {
+                Path current = repository;
+                runBranchAction(() -> repositories.renameBranch(current, oldName, newName));
+            });
+        });
         Button mergeBranch = new Button("Merge");
         Button abortMerge = new Button("Abort Merge");
         Button deleteBranch = new Button("Delete Branch");
@@ -152,6 +164,22 @@ public final class WorkspaceView extends BorderPane {
         conflicts.setOnAction(e -> showTextReport("Unresolved conflicts",
                 () -> String.join("\n", repositories.conflictedFiles(repository))));
         Button createTag = new Button("New Tag");
+        Button annotatedTag = new Button("Annotated Tag");
+        annotatedTag.setOnAction(e -> {
+            if (repository == null) return;
+            TextInputDialog nameDialog = new TextInputDialog();
+            nameDialog.setTitle("Annotated Tag");
+            nameDialog.setContentText("Tag name:");
+            nameDialog.showAndWait().ifPresent(name -> {
+                TextInputDialog messageDialog = new TextInputDialog();
+                messageDialog.setTitle("Annotated Tag");
+                messageDialog.setContentText("Annotation:");
+                messageDialog.showAndWait().ifPresent(annotation -> {
+                    Path current = repository;
+                    runBranchAction(() -> repositories.createAnnotatedTag(current, name, annotation));
+                });
+            });
+        });
         Button deleteTag = new Button("Delete Tag");
         createTag.setOnAction(e -> createTag());
         deleteTag.setOnAction(e -> deleteTag());
@@ -252,7 +280,7 @@ public final class WorkspaceView extends BorderPane {
                     });
         });
         stashSelector.setPromptText("Stashes");
-        MenuButton branchesMenu = actionsMenu("Branches", createBranch, switchBranch,
+        MenuButton branchesMenu = actionsMenu("Branches", createBranch, renameBranch, switchBranch,
                 mergeBranch, abortMerge, deleteBranch, rebase);
         MenuButton historyMenu = actionsMenu("History", cherryPick, revert, reflog,
                 blame, reset);
@@ -261,7 +289,7 @@ public final class WorkspaceView extends BorderPane {
         MenuButton remoteMenu = actionsMenu("Remotes", addRemote, renameRemote,
                 removeRemote, remoteDetails);
         MenuButton advancedMenu = actionsMenu("Advanced", worktrees, submodules,
-                updateSubmodules, createTag, deleteTag, stash, applyStash, dropStash);
+                updateSubmodules, createTag, annotatedTag, deleteTag, stash, applyStash, dropStash);
         ToolBar toolbar = new ToolBar(open, initialize, clone, refresh, stage, unstage,
                 new Separator(), branchSelector, branchesMenu,
                 new Separator(), historyMenu, operationsMenu, advancedMenu,
