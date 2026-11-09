@@ -71,6 +71,30 @@ public final class WorkspaceView extends BorderPane {
         });
         switchBranch.setOnAction(e -> switchBranch());
         branchSelector.setPromptText("Local branches");
+        Button rebase = new Button("Rebase Onto");
+        Button cherryPick = new Button("Cherry-pick");
+        Button revert = new Button("Revert");
+        rebase.setOnAction(e -> {
+            if (repository == null || branchSelector.getValue() == null) return;
+            Path current = repository;
+            String target = branchSelector.getValue();
+            confirmOperation("Rebase current branch onto '" + target + "'?",
+                    () -> repositories.rebase(current, target));
+        });
+        cherryPick.setOnAction(e -> {
+            CommitInfo selected = history.getSelectionModel().getSelectedItem();
+            if (repository == null || selected == null) return;
+            Path current = repository;
+            confirmOperation("Cherry-pick " + selected.id().substring(0, 8) + "?",
+                    () -> repositories.cherryPick(current, selected.id()));
+        });
+        revert.setOnAction(e -> {
+            CommitInfo selected = history.getSelectionModel().getSelectedItem();
+            if (repository == null || selected == null) return;
+            Path current = repository;
+            confirmOperation("Create a revert commit for " + selected.id().substring(0, 8) + "?",
+                    () -> repositories.revert(current, selected.id()));
+        });
         Button createTag = new Button("New Tag");
         Button deleteTag = new Button("Delete Tag");
         createTag.setOnAction(e -> createTag());
@@ -128,7 +152,7 @@ public final class WorkspaceView extends BorderPane {
         stashSelector.setPromptText("Stashes");
         ToolBar toolbar = new ToolBar(open, refresh, stage, unstage,
                 new Separator(), createBranch, branchSelector, switchBranch,
-                mergeBranch, abortMerge, deleteBranch,
+                mergeBranch, abortMerge, deleteBranch, rebase, cherryPick, revert,
                 new Separator(), createTag, tagSelector, deleteTag,
                 new Separator(), remoteSelector, fetch, pull, push,
                 new Separator(), stash, stashSelector, applyStash, dropStash,
@@ -184,6 +208,12 @@ public final class WorkspaceView extends BorderPane {
                 commitButton, message);
         commitPane.setPadding(new Insets(8));
         setBottom(commitPane);
+    }
+    private void confirmOperation(String question, Runnable action) {
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION, question,
+                ButtonType.OK, ButtonType.CANCEL);
+        confirm.showAndWait().filter(button -> button == ButtonType.OK)
+                .ifPresent(button -> runBranchAction(action));
     }
     private String selectedStashReference() {
         String selected = stashSelector.getValue();
