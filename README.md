@@ -1,9 +1,34 @@
 # Git Client
 
-A planned open-source, cross-platform Git GUI written in Java and JavaFX. The interface will modernize SourceTree-style workflows while retaining compatibility with ordinary native Git repositories.
+An open-source, cross-platform JavaFX Git GUI using the native Git command-line executable.
 
-**Status:** Architecture and requirements planning. No application implementation yet.
+## Current state
 
-See [Architecture and requirements](docs/ARCHITECTURE.md) for the product scope, technical decisions, component design, and roadmap.
+Milestone 1 is an **unverified implementation scaffold**. It opens an existing Git working-tree repository and displays the current branch, changed files, and up to 100 recent commits. Git calls execute off the JavaFX application thread.
 
-The repository is intended to remain private during initial development and may be released publicly after licensing and project readiness are reviewed.
+## Requirements
+
+- JDK 27
+- Maven
+- Git on `PATH`
+
+## Build and run
+
+```bash
+mvn clean install
+mvn -pl git-app javafx:run
+```
+
+## Project modules
+
+- `git-model`: immutable repository, file and commit records
+- `git-cli`: native Git execution and porcelain status parsing
+- `git-services`: repository operations
+- `git-ui`: JavaFX repository explorer
+- `git-app`: desktop application launcher
+
+See [architecture](docs/ARCHITECTURE.md) and [Milestone 1 notes](docs/MILESTONE-1.md).
+
+## Development status
+
+The scaffold has not yet been compiled or run in a JavaFX environment. Tests, CI, robust cancellation, empty-repository handling, staging, and advanced workflows are next steps.
