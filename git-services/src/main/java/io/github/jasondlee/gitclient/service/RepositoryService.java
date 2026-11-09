@@ -196,6 +196,24 @@ public final class RepositoryService {
                 StandardCharsets.UTF_8);
         return output.lines().filter(line -> !line.isBlank()).toList();
     }
+    public void startBisect(Path directory, String badCommit, String goodCommit) {
+        validateCommitId(badCommit);
+        validateCommitId(goodCommit);
+        git.run(findRepository(directory), "bisect", "start", badCommit, goodCommit);
+    }
+    public void markBisect(Path directory, boolean good) {
+        git.run(findRepository(directory), "bisect", good ? "good" : "bad");
+    }
+    public void resetBisect(Path directory) {
+        git.run(findRepository(directory), "bisect", "reset");
+    }
+    public boolean isBisecting(Path directory) {
+        String gitDir = new String(git.run(findRepository(directory),
+                "rev-parse", "--git-path", "BISECT_LOG"), StandardCharsets.UTF_8).strip();
+        Path path = Path.of(gitDir);
+        if (!path.isAbsolute()) path = findRepository(directory).resolve(path);
+        return java.nio.file.Files.isRegularFile(path);
+    }
     public String createPatch(Path directory, String commitId) {
         validateCommitId(commitId);
         return new String(git.run(findRepository(directory), "format-patch", "-1",
