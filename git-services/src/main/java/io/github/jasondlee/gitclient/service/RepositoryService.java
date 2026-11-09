@@ -40,6 +40,19 @@ public final class RepositoryService {
         }
         git.run(root, command.toArray(String[]::new));
     }
+    /** Commit staged changes only, preserving unstaged working-tree edits. */
+    public String commit(Path directory, String message) {
+        if (message == null || message.isBlank()) {
+            throw new IllegalArgumentException("Commit message must not be blank");
+        }
+        Path root = findRepository(directory);
+        boolean staged = status(root).files().stream()
+                .anyMatch(file -> !file.indexStatus().equals(".")
+                        && !file.indexStatus().equals("?"));
+        if (!staged) throw new IllegalStateException("No staged changes to commit");
+        git.run(root, "commit", "-m", message);
+        return new String(git.run(root, "rev-parse", "HEAD"), StandardCharsets.UTF_8).strip();
+    }
     public List<CommitInfo> history(Path directory, int count) {
         if (count <= 0) return List.of();
         String status = new String(git.run(directory, "status", "--porcelain=v2", "--branch", "-z"), StandardCharsets.UTF_8);
