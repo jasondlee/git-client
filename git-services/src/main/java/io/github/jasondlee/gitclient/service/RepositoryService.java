@@ -138,7 +138,7 @@ public final class RepositoryService {
         String output = new String(git.run(findRepository(directory),
                 "diff", "--name-only", "--diff-filter=U", "-z"), StandardCharsets.UTF_8);
         if (output.isEmpty()) return List.of();
-        return Arrays.stream(output.split("\\u0000")).filter(path -> !path.isEmpty()).toList();
+        return Arrays.stream(output.split("\u0000")).filter(path -> !path.isEmpty()).toList();
     }
     public void continueMerge(Path directory) {
         if (!conflictedFiles(directory).isEmpty()) {
