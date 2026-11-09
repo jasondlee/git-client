@@ -3,5 +3,5 @@
 <modules><module>git-model</module><module>git-cli</module><module>git-services</module><module>git-ui</module><module>git-app</module></modules>
 <properties><maven.compiler.release>27</maven.compiler.release><javafx.version>27.0.1</javafx.version><project.build.sourceEncoding>UTF-8</project.build.sourceEncoding></properties>
 <dependencyManagement><dependencies><dependency><groupId>org.openjfx</groupId><artifactId>javafx-controls</artifactId><version>${javafx.version}</version></dependency></dependencies></dependencyManagement>
-<build><pluginManagement><plugins><plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId><version>3.14.1</version></plugin></plugins></pluginManagement></build>
+<build><pluginManagement><plugins><plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-compiler-plugin</artifactId><version>3.16.0</version></plugin></plugins></pluginManagement></build>
 </project>
