@@ -15,12 +15,15 @@ public final class RepositoryService {
         return statusParser.parse(git.run(directory, "status", "--porcelain=v2", "--branch", "-z"));
     }
     public List<CommitInfo> history(Path directory, int count) {
-        byte[] data = git.run(directory, "log", "-n", Integer.toString(count), "--format=%H%x00%s%x00%an%x00%cI%x00");
-        String[] fields = new String(data, StandardCharsets.UTF_8).split("\u0000");
+        if (count <= 0) return List.of();
+        byte[] data = git.run(directory, "log", "-n", Integer.toString(count), "--format=%H%x1f%s%x1f%an%x1f%cI%x1e");
+        String output = new String(data, StandardCharsets.UTF_8);
         List<CommitInfo> commits = new ArrayList<>();
-        for (int i = 0; i + 3 < fields.length; i += 4) {
-            String id = fields[i].strip();
-            if (!id.isEmpty()) commits.add(new CommitInfo(id, fields[i+1], fields[i+2], fields[i+3]));
+        for (String record : output.split("\u001e")) {
+            String[] fields = record.stripLeading().split("\u001f", -1);
+            if (fields.length == 4 && !fields[0].isBlank()) {
+                commits.add(new CommitInfo(fields[0], fields[1], fields[2], fields[3]));
+            }
         }
         return commits;
     }
