@@ -327,6 +327,18 @@ public final class RepositoryService {
         }
     }
     /** Commit staged changes only, preserving unstaged working-tree edits. */
+    public String amendCommit(Path directory, String message) {
+        if (message == null || message.isBlank()) {
+            throw new IllegalArgumentException("Commit message must not be blank");
+        }
+        Path root = findRepository(directory);
+        if (history(root, 1).isEmpty()) {
+            throw new IllegalStateException("Cannot amend without an existing commit");
+        }
+        git.run(root, "commit", "--amend", "-m", message);
+        return new String(git.run(root, "rev-parse", "HEAD"),
+                StandardCharsets.UTF_8).strip();
+    }
     public String commit(Path directory, String message) {
         if (message == null || message.isBlank()) {
             throw new IllegalArgumentException("Commit message must not be blank");
