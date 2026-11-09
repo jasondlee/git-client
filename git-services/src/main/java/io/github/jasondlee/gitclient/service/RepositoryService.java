@@ -166,6 +166,35 @@ public final class RepositoryService {
         git.run(root, "commit", "-m", message);
         return new String(git.run(root, "rev-parse", "HEAD"), StandardCharsets.UTF_8).strip();
     }
+    public void reset(Path directory, String commitId, String mode) {
+        validateCommitId(commitId);
+        if (!List.of("soft", "mixed", "hard").contains(mode)) {
+            throw new IllegalArgumentException("Invalid reset mode");
+        }
+        git.run(findRepository(directory), "reset", "--" + mode, commitId);
+    }
+    public String configuration(Path directory, String key) {
+        if (key == null || !key.matches("[A-Za-z][A-Za-z0-9-]*\\.[A-Za-z0-9.-]+")) {
+            throw new IllegalArgumentException("Invalid configuration key");
+        }
+        return new String(git.run(findRepository(directory), "config", "--local",
+                "--get", key), StandardCharsets.UTF_8).strip();
+    }
+    public void setConfiguration(Path directory, String key, String value) {
+        if (key == null || !key.matches("[A-Za-z][A-Za-z0-9-]*\\.[A-Za-z0-9.-]+")
+                || value == null) {
+            throw new IllegalArgumentException("Invalid configuration");
+        }
+        git.run(findRepository(directory), "config", "--local", key, value);
+    }
+    public List<String> submodules(Path directory) {
+        String output = new String(git.run(findRepository(directory), "submodule",
+                "status"), StandardCharsets.UTF_8);
+        return output.lines().toList();
+    }
+    public void updateSubmodules(Path directory) {
+        git.run(findRepository(directory), "submodule", "update", "--init", "--recursive");
+    }
     public List<String> worktrees(Path directory) {
         String output = new String(git.run(findRepository(directory),
                 "worktree", "list", "--porcelain"), StandardCharsets.UTF_8);
