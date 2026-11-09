@@ -15,6 +15,21 @@ class RepositoryServiceTest {
         String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         assertEquals(0, process.waitFor(), output);
     }
+    @Test void searchesCommitsAndFileHistory() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
+        Files.writeString(directory.resolve("tracked.txt"), "initial\n");
+        git("add", "tracked.txt");
+        git("commit", "-m", "Initial unique search phrase");
+        var service = new RepositoryService();
+        assertEquals(1, service.searchCommits(directory, "unique search phrase", 10).size());
+        assertEquals(1, service.fileHistory(directory, "tracked.txt", 10).size());
+        assertTrue(service.searchCommits(directory, "no matching commit", 10).isEmpty());
+        assertThrows(IllegalArgumentException.class,
+                () -> service.fileHistory(directory, "../outside", 10));
+    }
     @Test void comparesLocalBranches() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
