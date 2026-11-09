@@ -22,6 +22,28 @@ class RepositoryServiceTest {
             throw new java.io.UncheckedIOException(ex);
         }
     }
+    @Test void startsAndResetsBisect() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
+        var service = new RepositoryService();
+        for (int i = 0; i < 4; i++) {
+            Files.writeString(directory.resolve("tracked.txt"), "version " + i);
+            git("add", "tracked.txt");
+            git("commit", "-m", "version " + i);
+        }
+        String bad = service.history(directory, 1).getFirst().id();
+        String good = service.history(directory, 4).getLast().id();
+        service.startBisect(directory, bad, good);
+        assertTrue(service.isBisecting(directory));
+        service.markBisect(directory, true);
+        service.resetBisect(directory);
+        assertFalse(service.isBisecting(directory));
+        assertEquals(bad, service.history(directory, 1).getFirst().id());
+        assertThrows(IllegalArgumentException.class,
+                () -> service.startBisect(directory, "--bad", good));
+    }
     @Test void createsLocalBranchTrackingRemote() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
