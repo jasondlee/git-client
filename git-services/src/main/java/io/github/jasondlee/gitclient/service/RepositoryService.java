@@ -60,6 +60,38 @@ public final class RepositoryService {
         }
         return result;
     }
+    public void pull(Path directory) {
+        git.run(findRepository(directory), "pull", "--ff-only");
+    }
+    public void push(Path directory) {
+        git.run(findRepository(directory), "push");
+    }
+    public List<String> stashes(Path directory) {
+        String output = new String(git.run(findRepository(directory), "stash", "list",
+                "--format=%gd%x09%s"), StandardCharsets.UTF_8);
+        return output.lines().filter(line -> !line.isBlank()).toList();
+    }
+    public void stash(Path directory, String message) {
+        List<String> args = new ArrayList<>(List.of("stash", "push", "--include-untracked"));
+        if (message != null && !message.isBlank()) {
+            args.add("-m");
+            args.add(message);
+        }
+        git.run(findRepository(directory), args.toArray(String[]::new));
+    }
+    public void applyStash(Path directory, String reference) {
+        validateStashReference(reference);
+        git.run(findRepository(directory), "stash", "apply", reference);
+    }
+    public void dropStash(Path directory, String reference) {
+        validateStashReference(reference);
+        git.run(findRepository(directory), "stash", "drop", reference);
+    }
+    private void validateStashReference(String reference) {
+        if (reference == null || !reference.matches("stash@\\\\{[0-9]+}")) {
+            throw new IllegalArgumentException("Invalid stash reference");
+        }
+    }
     public List<String> remotes(Path directory) {
         String output = new String(git.run(findRepository(directory), "remote"),
                 StandardCharsets.UTF_8);
