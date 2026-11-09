@@ -15,6 +15,25 @@ class RepositoryServiceTest {
         String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         assertEquals(0, process.waitFor(), output);
     }
+    @Test void comparesLocalBranches() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
+        Files.writeString(directory.resolve("tracked.txt"), "initial\n");
+        git("add", "tracked.txt");
+        git("commit", "-m", "initial");
+        var service = new RepositoryService();
+        service.createBranch(directory, "feature");
+        service.switchBranch(directory, "feature");
+        Files.writeString(directory.resolve("tracked.txt"), "changed\n");
+        git("add", "tracked.txt");
+        git("commit", "-m", "change");
+        String diff = service.compare(directory, "master", "feature");
+        assertTrue(diff.contains("+changed"));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.compare(directory, "--bad", "feature"));
+    }
     @Test void discardsOnlyWorkingChangesAndAddsIgnorePatterns() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
