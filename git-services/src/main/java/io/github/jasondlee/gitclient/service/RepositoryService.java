@@ -35,6 +35,37 @@ public final class RepositoryService {
         return statusParser.parse(git.run(directory, "status", "--porcelain=v2", "--branch", "-z"));
     }
     /** Stage the entire current contents of the selected paths. */
+    public void discardChanges(Path directory, List<String> paths) {
+        if (paths == null || paths.isEmpty()) return;
+        Path root = findRepository(directory);
+        List<String> command = new ArrayList<>(List.of("restore", "--worktree", "--"));
+        for (String path : paths) {
+            validateRepositoryPath(root, path);
+            command.add(path);
+        }
+        git.run(root, command.toArray(String[]::new));
+    }
+    public void ignorePattern(Path directory, String pattern) {
+        if (pattern == null || pattern.isBlank() || pattern.contains("\n")
+                || pattern.contains("\r")) {
+            throw new IllegalArgumentException("Invalid ignore pattern");
+        }
+        Path root = findRepository(directory);
+        Path ignoreFile = root.resolve(".gitignore");
+        try {
+            java.nio.file.Files.writeString(ignoreFile, pattern + System.lineSeparator(),
+                    StandardCharsets.UTF_8, java.nio.file.StandardOpenOption.CREATE,
+                    java.nio.file.StandardOpenOption.APPEND);
+        } catch (java.io.IOException ex) {
+            throw new java.io.UncheckedIOException("Unable to update .gitignore", ex);
+        }
+    }
+    private void validateRepositoryPath(Path root, String path) {
+        if (path == null || path.isBlank() || Path.of(path).isAbsolute()
+                || !root.resolve(path).normalize().startsWith(root)) {
+            throw new IllegalArgumentException("Invalid repository-relative path: " + path);
+        }
+    }
     public void stage(Path directory, List<String> paths) {
         updateIndex(directory, paths, false);
     }
