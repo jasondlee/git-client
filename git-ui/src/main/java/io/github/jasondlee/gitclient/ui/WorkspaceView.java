@@ -24,7 +24,11 @@ public final class WorkspaceView extends BorderPane {
         Button refresh = new Button("Refresh");
         open.setOnAction(e -> openRepository());
         refresh.setOnAction(e -> refresh());
-        ToolBar toolbar = new ToolBar(open, refresh, new Separator(), location, new Separator(), branch);
+        Button stage = new Button("Stage Selected");
+        Button unstage = new Button("Unstage Selected");
+        stage.setOnAction(e -> changeStaging(false));
+        unstage.setOnAction(e -> changeStaging(true));
+        ToolBar toolbar = new ToolBar(open, refresh, stage, unstage, new Separator(), location, new Separator(), branch);
         setTop(toolbar);
         TableColumn<ChangedFile,String> path = new TableColumn<>("File");
         path.setCellValueFactory(c -> new ReadOnlyStringWrapper(c.getValue().path()));
@@ -33,6 +37,7 @@ public final class WorkspaceView extends BorderPane {
         TableColumn<ChangedFile,String> working = new TableColumn<>("Worktree");
         working.setCellValueFactory(c -> new ReadOnlyStringWrapper(c.getValue().worktreeStatus()));
         status.getColumns().addAll(path, index, working);
+        status.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
         status.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
         history.setCellFactory(v -> new ListCell<>() {
             @Override protected void updateItem(CommitInfo item, boolean empty) {
@@ -48,6 +53,26 @@ public final class WorkspaceView extends BorderPane {
         BorderPane.setMargin(panes, new Insets(8));
         setBottom(message);
         BorderPane.setMargin(message, new Insets(8));
+    }
+    private void changeStaging(boolean unstage) {
+        Path current = repository;
+        if (current == null) return;
+        var paths = status.getSelectionModel().getSelectedItems().stream()
+                .map(ChangedFile::path).toList();
+        if (paths.isEmpty()) {
+            message.setText("Select one or more files first.");
+            return;
+        }
+        message.setText(unstage ? "Unstaging..." : "Staging...");
+        Thread.startVirtualThread(() -> {
+            try {
+                if (unstage) repositories.unstage(current, paths);
+                else repositories.stage(current, paths);
+                Platform.runLater(this::refresh);
+            } catch (Exception ex) {
+                Platform.runLater(() -> message.setText("Error: " + ex.getMessage()));
+            }
+        });
     }
     private void openRepository() {
         DirectoryChooser chooser = new DirectoryChooser();
