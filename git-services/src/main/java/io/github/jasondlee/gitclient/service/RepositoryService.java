@@ -196,6 +196,21 @@ public final class RepositoryService {
                 StandardCharsets.UTF_8);
         return output.lines().filter(line -> !line.isBlank()).toList();
     }
+    public List<String> fileHistory(Path directory, String path, int count) {
+        if (count <= 0) return List.of();
+        Path root = findRepository(directory);
+        validateRepositoryPath(root, path);
+        String output = new String(git.run(root, "log", "-n", Integer.toString(count),
+                "--format=%h %ad %s", "--date=short", "--", path), StandardCharsets.UTF_8);
+        return output.lines().toList();
+    }
+    public List<String> searchCommits(Path directory, String query, int count) {
+        if (query == null || query.isBlank() || count <= 0) return List.of();
+        String output = new String(git.run(findRepository(directory), "log", "--all",
+                "-n", Integer.toString(count), "--fixed-strings", "--grep=" + query,
+                "--format=%h %ad %s", "--date=short"), StandardCharsets.UTF_8);
+        return output.lines().toList();
+    }
     public String compare(Path directory, String left, String right) {
         validateCommitish(left);
         validateCommitish(right);
