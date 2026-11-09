@@ -15,6 +15,23 @@ class RepositoryServiceTest {
         String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         assertEquals(0, process.waitFor(), output);
     }
+    @Test void initializesAndClonesLocalRepository() throws Exception {
+        var service = new RepositoryService();
+        Path source = Files.createDirectory(directory.resolve("source"));
+        assertEquals(source.toRealPath(), service.initialize(source).toRealPath());
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
+        Files.writeString(directory.resolve("original.txt"), "content\n");
+        git("add", "original.txt");
+        git("commit", "-m", "original");
+        Path clone = service.cloneRepository(directory, directory.toString(), "copy");
+        assertTrue(Files.exists(clone.resolve("original.txt")));
+        assertEquals(1, service.history(clone, 10).size());
+        assertThrows(IllegalArgumentException.class,
+                () -> service.cloneRepository(directory, directory.toString(), "../escape"));
+    }
     @Test void detectsMergeConflictsAndAbortsSafely() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
