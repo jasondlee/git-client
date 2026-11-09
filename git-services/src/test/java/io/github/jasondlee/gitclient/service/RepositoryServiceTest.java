@@ -15,6 +15,13 @@ class RepositoryServiceTest {
         String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         assertEquals(0, process.waitFor(), output);
     }
+    private static Path canonicalPath(Path path) {
+        try {
+            return path.toRealPath();
+        } catch (java.io.IOException ex) {
+            throw new java.io.UncheckedIOException(ex);
+        }
+    }
     @Test void createsLocalBranchTrackingRemote() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
@@ -67,7 +74,7 @@ class RepositoryServiceTest {
             service.addWorktree(directory, linked, "feature");
             assertTrue(Files.exists(linked.resolve("tracked.txt")));
             assertTrue(service.worktrees(directory).stream()
-                    .anyMatch(path -> Path.of(path).toRealPath().equals(linked.toRealPath())));
+                    .anyMatch(path -> canonicalPath(Path.of(path)).equals(canonicalPath(linked))));
             assertThrows(IllegalArgumentException.class,
                     () -> service.removeWorktree(directory, directory));
             service.removeWorktree(directory, linked);
