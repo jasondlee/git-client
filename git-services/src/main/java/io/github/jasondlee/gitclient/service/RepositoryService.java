@@ -19,6 +19,7 @@ public final class RepositoryService {
                 || url == null || url.isBlank() || url.startsWith("-")
                 || folderName == null || folderName.isBlank()
                 || folderName.equals(".") || folderName.equals("..")
+                || folderName.contains("/") || folderName.contains("\\\\")
                 || !Path.of(folderName).getFileName().toString().equals(folderName)
                 || java.nio.file.Files.exists(parentDirectory.resolve(folderName))) {
             throw new IllegalArgumentException("Invalid clone destination or repository URL");
