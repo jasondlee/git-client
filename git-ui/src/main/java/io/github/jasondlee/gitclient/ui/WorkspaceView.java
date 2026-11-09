@@ -139,6 +139,14 @@ public final class WorkspaceView extends BorderPane {
             confirmOperation("Create a revert commit for " + selected.id().substring(0, 8) + "?",
                     () -> repositories.revert(current, selected.id()));
         });
+        Button compare = new Button("Compare Branch to HEAD");
+        compare.setOnAction(e -> {
+            if (repository == null || branchSelector.getValue() == null) return;
+            Path current = repository;
+            String target = branchSelector.getValue();
+            showTextReport("HEAD vs " + target,
+                    () -> repositories.compare(current, "HEAD", target));
+        });
         Button reflog = new Button("Reflog");
         Button blame = new Button("Blame File");
         Button worktrees = new Button("Worktrees");
@@ -309,7 +317,7 @@ public final class WorkspaceView extends BorderPane {
         stashSelector.setPromptText("Stashes");
         MenuButton branchesMenu = actionsMenu("Branches", createBranch, renameBranch, switchBranch,
                 mergeBranch, abortMerge, deleteBranch, rebase);
-        MenuButton historyMenu = actionsMenu("History", cherryPick, revert, reflog,
+        MenuButton historyMenu = actionsMenu("History", cherryPick, revert, compare, reflog,
                 blame, reset);
         MenuButton operationsMenu = actionsMenu("Operations", continueOperation,
                 abortOperation, skipRebase, conflicts);
