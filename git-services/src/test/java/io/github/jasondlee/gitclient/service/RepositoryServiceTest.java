@@ -15,6 +15,32 @@ class RepositoryServiceTest {
         String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         assertEquals(0, process.waitFor(), output);
     }
+    @Test void addsAndRemovesLinkedWorktrees() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
+        Files.writeString(directory.resolve("tracked.txt"), "initial\n");
+        git("add", "tracked.txt");
+        git("commit", "-m", "initial");
+        var service = new RepositoryService();
+        service.createBranch(directory, "feature");
+        Path linked = directory.resolveSibling(directory.getFileName() + "-linked");
+        try {
+            service.addWorktree(directory, linked, "feature");
+            assertTrue(Files.exists(linked.resolve("tracked.txt")));
+            assertTrue(service.worktrees(directory).stream()
+                    .anyMatch(path -> Path.of(path).toAbsolutePath().normalize().equals(linked)));
+            assertThrows(IllegalArgumentException.class,
+                    () -> service.removeWorktree(directory, directory));
+            service.removeWorktree(directory, linked);
+            assertFalse(Files.exists(linked));
+        } finally {
+            if (Files.exists(linked)) {
+                git("worktree", "remove", "--force", linked.toString());
+            }
+        }
+    }
     @Test void exportsAndAppliesCommitPatch() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
