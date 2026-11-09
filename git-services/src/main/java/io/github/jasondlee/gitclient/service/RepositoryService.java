@@ -196,6 +196,18 @@ public final class RepositoryService {
                 StandardCharsets.UTF_8);
         return output.lines().filter(line -> !line.isBlank()).toList();
     }
+    public String compare(Path directory, String left, String right) {
+        validateCommitish(left);
+        validateCommitish(right);
+        return new String(git.run(findRepository(directory), "diff", "--no-ext-diff",
+                "--no-color", left, right), StandardCharsets.UTF_8);
+    }
+    private void validateCommitish(String value) {
+        if (value == null || !value.matches("[A-Za-z0-9_./-]+")
+                || value.startsWith("-") || value.contains("..")) {
+            throw new IllegalArgumentException("Invalid Git reference");
+        }
+    }
     public void renameBranch(Path directory, String oldName, String newName) {
         validateBranchName(oldName);
         validateBranchName(newName);
