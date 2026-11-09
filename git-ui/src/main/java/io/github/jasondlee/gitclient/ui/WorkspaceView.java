@@ -3,6 +3,7 @@ import io.github.jasondlee.gitclient.model.*;
 import io.github.jasondlee.gitclient.service.RepositoryService;
 import javafx.application.Platform;
 import javafx.beans.property.ReadOnlyStringWrapper;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
@@ -18,7 +19,7 @@ public final class WorkspaceView extends BorderPane {
     private final Label message = new Label("Choose Open Repository to begin.");
     private final TextArea commitMessage = new TextArea();
     private final Button commitButton = new Button("Commit Staged");
-    private boolean operationRunning;
+    private final SimpleBooleanProperty operationRunning = new SimpleBooleanProperty(false);
     private Path repository;
     private long refreshGeneration;
 
@@ -57,7 +58,7 @@ public final class WorkspaceView extends BorderPane {
         commitMessage.setPromptText("Commit message");
         commitMessage.setPrefRowCount(3);
         commitButton.setOnAction(e -> commit());
-        commitButton.disableProperty().bind(commitMessage.textProperty().isEmpty());
+        commitButton.disableProperty().bind(commitMessage.textProperty().isEmpty().or(operationRunning));
         VBox commitPane = new VBox(6, new Label("Commit staged changes"), commitMessage,
                 commitButton, message);
         commitPane.setPadding(new Insets(8));
@@ -85,28 +86,26 @@ public final class WorkspaceView extends BorderPane {
     }
     private void commit() {
         Path current = repository;
-        if (current == null || operationRunning) return;
+        if (current == null || operationRunning.get()) return;
         String text = commitMessage.getText();
         if (text.isBlank()) {
             message.setText("Enter a commit message.");
             return;
         }
-        operationRunning = true;
-        commitButton.setDisable(true);
+        operationRunning.set(true);
         message.setText("Committing...");
         Thread.startVirtualThread(() -> {
             try {
                 String id = repositories.commit(current, text);
                 Platform.runLater(() -> {
-                    operationRunning = false;
+                    operationRunning.set(false);
                     commitMessage.clear();
                     message.setText("Committed " + id.substring(0, 8));
                     refresh();
                 });
             } catch (Exception ex) {
                 Platform.runLater(() -> {
-                    operationRunning = false;
-                    commitButton.setDisable(false);
+                    operationRunning.set(false);
                     message.setText("Commit failed: " + ex.getMessage());
                 });
             }
