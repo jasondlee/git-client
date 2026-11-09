@@ -40,6 +40,33 @@ public final class WorkspaceView extends BorderPane {
         Button refresh = new Button("Refresh");
         open.setOnAction(e -> openRepository());
         refresh.setOnAction(e -> refresh());
+        Button discard = new Button("Discard Tracked");
+        Button ignore = new Button("Ignore Pattern");
+        discard.setOnAction(e -> {
+            if (repository == null) return;
+            var paths = status.getSelectionModel().getSelectedItems().stream()
+                    .filter(file -> !file.indexStatus().equals("?"))
+                    .map(ChangedFile::path).toList();
+            if (paths.isEmpty()) {
+                message.setText("Select tracked files to discard.");
+                return;
+            }
+            Path current = repository;
+            confirmOperation("Discard unstaged edits in " + paths.size()
+                    + " tracked file(s)? This cannot be undone.",
+                    () -> repositories.discardChanges(current, paths));
+        });
+        ignore.setOnAction(e -> {
+            if (repository == null) return;
+            TextInputDialog dialog = new TextInputDialog();
+            dialog.setTitle("Ignore Pattern");
+            dialog.setHeaderText("Append a pattern to .gitignore");
+            dialog.setContentText("Pattern:");
+            dialog.showAndWait().ifPresent(pattern -> {
+                Path current = repository;
+                runBranchAction(() -> repositories.ignorePattern(current, pattern));
+            });
+        });
         Button stage = new Button("Stage Selected");
         Button unstage = new Button("Unstage Selected");
         stage.setOnAction(e -> changeStaging(false));
@@ -291,6 +318,7 @@ public final class WorkspaceView extends BorderPane {
         MenuButton advancedMenu = actionsMenu("Advanced", worktrees, submodules,
                 updateSubmodules, createTag, annotatedTag, deleteTag, stash, applyStash, dropStash);
         ToolBar toolbar = new ToolBar(open, initialize, clone, refresh, stage, unstage,
+                discard, ignore,
                 new Separator(), branchSelector, branchesMenu,
                 new Separator(), historyMenu, operationsMenu, advancedMenu,
                 new Separator(), tagSelector, stashSelector,
