@@ -15,6 +15,20 @@ class RepositoryServiceTest {
         String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         assertEquals(0, process.waitFor(), output);
     }
+    @Test void createsAndSwitchesLocalBranches() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        Files.writeString(directory.resolve("tracked.txt"), "initial\n");
+        git("add", "tracked.txt");
+        git("commit", "-m", "initial");
+        var service = new RepositoryService();
+        service.createBranch(directory, "feature/test");
+        assertTrue(service.branches(directory).containsAll(java.util.List.of("master", "feature/test")));
+        service.switchBranch(directory, "feature/test");
+        assertEquals("feature/test", service.status(directory).branch());
+        assertThrows(IllegalArgumentException.class, () -> service.createBranch(directory, "-bad"));
+    }
     @Test void previewsStagedAndUnstagedDiffsIndependently() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
