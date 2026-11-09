@@ -121,6 +121,34 @@ public final class RepositoryService {
         }
         git.run(findRepository(directory), "tag", "-d", name);
     }
+    /** Git's sequencer and merge state, including linked-worktree gitdirs. */
+    public String operationState(Path directory) {
+        Path root = findRepository(directory);
+        String gitDir = new String(git.run(root, "rev-parse", "--absolute-git-dir"),
+                StandardCharsets.UTF_8).strip();
+        Path metadata = Path.of(gitDir);
+        if (java.nio.file.Files.exists(metadata.resolve("rebase-merge"))
+                || java.nio.file.Files.exists(metadata.resolve("rebase-apply"))) return "REBASE";
+        if (java.nio.file.Files.exists(metadata.resolve("MERGE_HEAD"))) return "MERGE";
+        if (java.nio.file.Files.exists(metadata.resolve("CHERRY_PICK_HEAD"))) return "CHERRY_PICK";
+        if (java.nio.file.Files.exists(metadata.resolve("REVERT_HEAD"))) return "REVERT";
+        return "NONE";
+    }
+    public List<String> conflictedFiles(Path directory) {
+        String output = new String(git.run(findRepository(directory),
+                "diff", "--name-only", "--diff-filter=U", "-z"), StandardCharsets.UTF_8);
+        if (output.isEmpty()) return List.of();
+        return Arrays.stream(output.split("\\u0000")).filter(path -> !path.isEmpty()).toList();
+    }
+    public void continueMerge(Path directory) {
+        if (!conflictedFiles(directory).isEmpty()) {
+            throw new IllegalStateException("Resolve and stage all conflicts before continuing");
+        }
+        git.run(findRepository(directory), "merge", "--continue");
+    }
+    public void continueRevert(Path directory) {
+        git.run(findRepository(directory), "revert", "--continue");
+    }
     public void merge(Path directory, String branchName) {
         validateBranchName(branchName);
         if (!branches(directory).contains(branchName)) {
