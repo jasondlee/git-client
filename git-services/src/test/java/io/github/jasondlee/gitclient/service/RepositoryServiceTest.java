@@ -19,6 +19,7 @@ class RepositoryServiceTest {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
         git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
         Files.writeString(directory.resolve("tracked.txt"), "first\n");
         git("add", "tracked.txt");
         git("commit", "-m", "first");
@@ -41,6 +42,7 @@ class RepositoryServiceTest {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
         git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
         Files.writeString(directory.resolve("tracked.txt"), "initial\n");
         git("add", "tracked.txt");
         git("commit", "-m", "initial");
@@ -55,6 +57,7 @@ class RepositoryServiceTest {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
         git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
         Files.writeString(directory.resolve("base.txt"), "base\n");
         git("add", "base.txt");
         git("commit", "-m", "base");
@@ -77,6 +80,7 @@ class RepositoryServiceTest {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
         git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
         Files.writeString(directory.resolve("detail.txt"), "commit details\n");
         git("add", "detail.txt");
         git("commit", "-m", "show details");
@@ -91,6 +95,7 @@ class RepositoryServiceTest {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
         git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
         Files.writeString(directory.resolve("base.txt"), "base\n");
         git("add", "base.txt");
         git("commit", "-m", "base");
@@ -110,6 +115,7 @@ class RepositoryServiceTest {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
         git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
         Files.writeString(directory.resolve("tracked.txt"), "initial\n");
         git("add", "tracked.txt");
         git("commit", "-m", "initial");
@@ -131,6 +137,7 @@ class RepositoryServiceTest {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
         git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
         Files.writeString(directory.resolve("tracked.txt"), "initial\n");
         git("add", "tracked.txt");
         git("commit", "-m", "initial");
@@ -144,6 +151,7 @@ class RepositoryServiceTest {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
         git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
         Files.writeString(directory.resolve("tracked.txt"), "initial\n");
         git("add", "tracked.txt");
         git("commit", "-m", "initial");
@@ -158,6 +166,7 @@ class RepositoryServiceTest {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
         git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
         Files.writeString(directory.resolve("tracked.txt"), "initial\n");
         git("add", "tracked.txt");
         git("commit", "-m", "initial");
@@ -172,6 +181,7 @@ class RepositoryServiceTest {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
         git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
         Files.writeString(directory.resolve("example.txt"), "original\n");
         git("add", "example.txt");
         git("commit", "-m", "initial");
@@ -194,6 +204,7 @@ class RepositoryServiceTest {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
         git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
         Files.writeString(directory.resolve("tracked.txt"), "initial\n");
         git("add", "tracked.txt");
         git("commit", "-m", "initial");
@@ -217,6 +228,7 @@ class RepositoryServiceTest {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
         git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
         Files.writeString(directory.resolve("staged.txt"), "staged\n");
         Files.writeString(directory.resolve("unstaged.txt"), "unstaged\n");
         var service = new RepositoryService();
@@ -241,6 +253,7 @@ class RepositoryServiceTest {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
         git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
         Files.writeString(directory.resolve("tracked.txt"), "initial\n");
         git("add", "tracked.txt");
         git("commit", "-m", "initial commit");
