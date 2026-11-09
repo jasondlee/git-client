@@ -15,6 +15,23 @@ class RepositoryServiceTest {
         String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         assertEquals(0, process.waitFor(), output);
     }
+    @Test void createsLocalBranchTrackingRemote() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
+        Files.writeString(directory.resolve("tracked.txt"), "initial\n");
+        git("add", "tracked.txt");
+        git("commit", "-m", "initial");
+        var service = new RepositoryService();
+        service.addRemote(directory, "origin", directory.toString());
+        git("fetch", "origin");
+        assertTrue(service.remoteBranches(directory).contains("origin/master"));
+        service.createTrackingBranch(directory, "tracking", "origin/master");
+        assertTrue(service.branches(directory).contains("tracking"));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.createTrackingBranch(directory, "bad", "origin/missing"));
+    }
     @Test void amendsLatestCommitWithoutCreatingAnother() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
