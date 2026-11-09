@@ -17,6 +17,7 @@ public final class WorkspaceView extends BorderPane {
     private final ComboBox<String> branchSelector = new ComboBox<>();
     private final ComboBox<String> tagSelector = new ComboBox<>();
     private final ComboBox<String> remoteSelector = new ComboBox<>();
+    private final ComboBox<String> stashSelector = new ComboBox<>();
     private final TableView<ChangedFile> status = new TableView<>();
     private final ListView<CommitInfo> history = new ListView<>();
     private final TextArea diffPreview = new TextArea();
@@ -56,10 +57,53 @@ public final class WorkspaceView extends BorderPane {
             runBranchAction(() -> repositories.fetch(current, remote));
         });
         remoteSelector.setPromptText("Remote");
+        Button pull = new Button("Pull (FF)");
+        Button push = new Button("Push");
+        pull.setOnAction(e -> {
+            if (repository != null) {
+                Path current = repository;
+                runBranchAction(() -> repositories.pull(current));
+            }
+        });
+        push.setOnAction(e -> {
+            if (repository != null) {
+                Path current = repository;
+                runBranchAction(() -> repositories.push(current));
+            }
+        });
+        Button stash = new Button("Stash");
+        Button applyStash = new Button("Apply Stash");
+        Button dropStash = new Button("Drop Stash");
+        stash.setOnAction(e -> {
+            if (repository != null) {
+                Path current = repository;
+                runBranchAction(() -> repositories.stash(current, "Saved from Git Client"));
+            }
+        });
+        applyStash.setOnAction(e -> {
+            String ref = selectedStashReference();
+            if (repository != null && ref != null) {
+                Path current = repository;
+                runBranchAction(() -> repositories.applyStash(current, ref));
+            }
+        });
+        dropStash.setOnAction(e -> {
+            String ref = selectedStashReference();
+            if (repository == null || ref == null) return;
+            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
+                    "Permanently drop " + ref + "?", ButtonType.OK, ButtonType.CANCEL);
+            confirm.showAndWait().filter(button -> button == ButtonType.OK)
+                    .ifPresent(button -> {
+                        Path current = repository;
+                        runBranchAction(() -> repositories.dropStash(current, ref));
+                    });
+        });
+        stashSelector.setPromptText("Stashes");
         ToolBar toolbar = new ToolBar(open, refresh, stage, unstage,
                 new Separator(), createBranch, branchSelector, switchBranch,
                 new Separator(), createTag, tagSelector, deleteTag,
-                new Separator(), remoteSelector, fetch,
+                new Separator(), remoteSelector, fetch, pull, push,
+                new Separator(), stash, stashSelector, applyStash, dropStash,
                 new Separator(), location, new Separator(), branch);
         setTop(toolbar);
         TableColumn<ChangedFile,String> path = new TableColumn<>("File");
@@ -107,6 +151,12 @@ public final class WorkspaceView extends BorderPane {
                 commitButton, message);
         commitPane.setPadding(new Insets(8));
         setBottom(commitPane);
+    }
+    private String selectedStashReference() {
+        String selected = stashSelector.getValue();
+        if (selected == null) return null;
+        int tab = selected.indexOf('\t');
+        return tab < 0 ? selected : selected.substring(0, tab);
     }
     private void createTag() {
         if (repository == null) return;
@@ -242,6 +292,7 @@ public final class WorkspaceView extends BorderPane {
                 var branches = repositories.branches(root);
                 var tags = repositories.tags(root);
                 var remotes = repositories.remotes(root);
+                var stashes = repositories.stashes(root);
                 Platform.runLater(() -> {
                     if (generation != refreshGeneration) return;
                     repository = root;
@@ -250,6 +301,7 @@ public final class WorkspaceView extends BorderPane {
                     branchSelector.getItems().setAll(branches);
                     branchSelector.setValue(snapshot.branch());
                     tagSelector.getItems().setAll(tags);
+                    stashSelector.getItems().setAll(stashes);
                     String selectedRemote = remoteSelector.getValue();
                     remoteSelector.getItems().setAll(remotes);
                     if (remotes.contains(selectedRemote)) remoteSelector.setValue(selectedRemote);
