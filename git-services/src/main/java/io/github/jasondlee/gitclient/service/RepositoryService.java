@@ -379,13 +379,24 @@ public final class RepositoryService {
         if (destination == null || !destination.isAbsolute()) {
             throw new IllegalArgumentException("Worktree destination must be absolute");
         }
+        if (!branches(directory).contains(branchName)) {
+            throw new IllegalArgumentException("Unknown local branch: " + branchName);
+        }
         git.run(findRepository(directory), "worktree", "add", destination.toString(), branchName);
     }
     public void removeWorktree(Path directory, Path destination) {
         if (destination == null || !destination.isAbsolute()) {
             throw new IllegalArgumentException("Worktree destination must be absolute");
         }
-        git.run(findRepository(directory), "worktree", "remove", destination.toString());
+        Path target = destination.toAbsolutePath().normalize();
+        if (!worktrees(directory).stream().map(Path::of)
+                .map(path -> path.toAbsolutePath().normalize()).anyMatch(target::equals)) {
+            throw new IllegalArgumentException("Not a registered worktree: " + target);
+        }
+        if (target.equals(findRepository(directory))) {
+            throw new IllegalArgumentException("Cannot remove the current worktree");
+        }
+        git.run(findRepository(directory), "worktree", "remove", target.toString());
     }
     public List<String> reflog(Path directory, int count) {
         if (count <= 0) return List.of();
