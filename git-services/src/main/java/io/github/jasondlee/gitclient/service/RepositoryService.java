@@ -957,7 +957,7 @@ public final class RepositoryService {
                 StandardCharsets.UTF_8);
     }
     public String commitGraph(Path directory, int count) {
-        if (count <= 0) return "";
+        if (count <= 0 || history(directory, 1).isEmpty()) return "";
         return new String(git.run(findRepository(directory), "log", "--all",
                 "--graph", "--decorate", "--format=%H %s %d", "--color=never",
                 "-n", Integer.toString(Math.min(count, 1000))),
