@@ -996,7 +996,7 @@ public final class WorkspaceView extends BorderPane {
                     dialog.getDialogPane().getButtonTypes().addAll(
                             ButtonType.OK, ButtonType.CANCEL);
                     dialog.setResultConverter(button -> button == ButtonType.OK
-                            ? String.join("\\n", commits) + "\\n" : null);
+                            ? String.join("\n", commits) + "\n" : null);
                     dialog.showAndWait().ifPresent(plan ->
                             confirmOperation("Rewrite local commits using this interactive rebase plan?",
                                     () -> repositories.interactiveRebase(current, base, plan)));
