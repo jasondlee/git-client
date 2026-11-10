@@ -1222,7 +1222,16 @@ public final class WorkspaceView extends BorderPane {
                                     Platform.runLater(() ->
                                             confirmOperation(
                                                     "Rewrite local commits using this interactive rebase plan?",
-                                                    () -> repositories.interactiveRebase(current, base, plan, replacementMessages)));
+                                                    () -> {
+                                                        try {
+                                                            repositories.interactiveRebase(
+                                                                    current, base, plan, replacementMessages);
+                                                        } finally {
+                                                            if (repositories.rebaseInProgress(current)) {
+                                                                Platform.runLater(this::showRebaseRecovery);
+                                                            }
+                                                        }
+                                                    }));
                                 } catch (Exception ex) {
                                     Platform.runLater(() -> {
                                         Alert alert = new Alert(Alert.AlertType.ERROR);
