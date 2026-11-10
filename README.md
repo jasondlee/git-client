@@ -39,6 +39,34 @@ GitHub Actions provides two separate workflows:
 
 Packaging has not yet been verified on every runner. These application bundles are not signed or notarized, and are not yet MSI, DMG, or DEB installers. Do not treat them as production releases until packaging and launch smoke tests pass on each OS.
 
+## Interactive rebase
+
+Choose a **base branch** from the branch selector and select **Interactive Rebase**
+from the Branches menu. The editor lists commits from oldest to newest and
+supports:
+
+- **Pick**: replay the commit.
+- **Reword**: replace its subject and optional message body; use **Edit Message**
+  to revise the replacement before starting.
+- **Edit**: pause after applying the commit so you can amend it, then continue.
+- **Squash**: combine the commit with the preceding retained commit.
+- **Fixup**: combine changes while discarding this commit's message.
+- **Drop**: omit the commit.
+
+Drag commits or use **Move Up / Move Down** to reorder them. Squash and fixup
+must follow a retained commit. The application validates the complete plan,
+requires a clean working tree, and currently supports linear local history.
+Interactive rebase **rewrites commit IDs**; coordinate with collaborators
+before force-pushing a branch that has already been shared.
+
+If Git pauses for a conflict or an Edit action, **Rebase Recovery** opens
+automatically. Select a conflicted file and resolve and stage it, then use
+**Refresh** to update progress and enable **Continue**. For an Edit stop, amend
+the commit before continuing. **Skip Commit** discards the current commit;
+**Abort Rebase** restores the pre-rebase branch. Rebase Recovery is also
+available from the Operations menu. Git and Java must be available on PATH
+for the rebase editor subprocess.
+
 ## Project modules
 
 - `git-model`: repository, file, and commit records
