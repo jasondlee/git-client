@@ -1,0 +1,46 @@
+name: Package desktop application
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Package (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - name: Set up JDK 27
+        uses: actions/setup-java@v6.2.0
+        with:
+          distribution: temurin
+          java-version: '27'
+          cache: maven
+      - name: Build and verify modules
+        run: mvn --batch-mode --no-transfer-progress install
+      - name: Create modular runtime image
+        run: mvn --batch-mode --no-transfer-progress -pl git-app javafx:jlink
+      - name: Create platform application bundle
+        run: jpackage --type app-image --name GitClient --runtime-image git-app/target/image --module gitclient.app/io.github.jasondlee.gitclient.app.GitClientApp --dest dist
+      - name: Archive Unix application bundle
+        if: runner.os != 'Windows'
+        shell: bash
+        run: tar -czf "GitClient-${{ runner.os }}.tar.gz" -C dist GitClient
+      - name: Archive Windows application bundle
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Compress-Archive -Path dist/GitClient -DestinationPath GitClient-Windows.zip
+      - name: Upload platform bundle
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: GitClient-${{ runner.os }}
+          path: GitClient-*
+          if-no-files-found: error
