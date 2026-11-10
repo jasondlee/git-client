@@ -74,6 +74,26 @@ class RepositoryServiceTest {
                 () -> service.createTagAt(directory, "valid", "not-a-hash"));
     }
 
+    @Test void commitGraphIncludesOtherBranchesAndTags() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        Files.writeString(directory.resolve("base.txt"), "base\n");
+        git("add", ".");
+        git("commit", "-m", "base");
+        git("checkout", "-b", "topic");
+        Files.writeString(directory.resolve("topic.txt"), "topic\n");
+        git("add", ".");
+        git("commit", "-m", "topic only");
+        git("tag", "topic-tag");
+        git("checkout", "master");
+        var service = new RepositoryService();
+        String graph = service.commitGraph(directory, 100);
+        assertTrue(graph.contains("topic only"), graph);
+        assertTrue(graph.contains("topic-tag"), graph);
+        assertTrue(graph.contains("topic"), graph);
+    }
+
     @Test void interactiveRebaseRejectsFirstFixupAndDirtyTree() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
