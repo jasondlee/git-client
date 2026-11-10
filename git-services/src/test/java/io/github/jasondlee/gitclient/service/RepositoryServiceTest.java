@@ -22,6 +22,28 @@ class RepositoryServiceTest {
             throw new java.io.UncheckedIOException(ex);
         }
     }
+    @Test void interactiveRebaseRejectsFirstFixupAndDirtyTree() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
+        Files.writeString(directory.resolve("base.txt"), "base\n");
+        git("add", ".");
+        git("commit", "-m", "base");
+        git("branch", "base");
+        Files.writeString(directory.resolve("change.txt"), "change\n");
+        git("add", ".");
+        git("commit", "-m", "change");
+        var service = new RepositoryService();
+        String plan = service.interactiveRebasePlan(directory, "base");
+        assertThrows(IllegalArgumentException.class,
+                () -> service.interactiveRebase(directory, "base",
+                        plan.replaceFirst("^pick ", "fixup ")));
+        Files.writeString(directory.resolve("untracked.txt"), "dirty\n");
+        assertThrows(IllegalStateException.class,
+                () -> service.interactiveRebase(directory, "base", plan));
+    }
+
     @Test void interactiveRebaseSquashesCommits() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
