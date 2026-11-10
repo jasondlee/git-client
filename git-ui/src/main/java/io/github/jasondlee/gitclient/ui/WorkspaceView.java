@@ -315,8 +315,7 @@ public final class WorkspaceView extends BorderPane {
         graph.setOnAction(e -> {
             if (repository == null) return;
             Path current = repository;
-            showTextReport("All-branch commit graph",
-                    () -> repositories.commitGraph(current, 200));
+            showCommitGraph(current);
         });
         Button reflog = new Button("Reflog");
         Button blame = new Button("Blame File");
@@ -927,6 +926,58 @@ public final class WorkspaceView extends BorderPane {
             }
         });
     }
+    private void showCommitGraph(Path current) {
+        Thread.startVirtualThread(() -> {
+            try {
+                String graph = repositories.commitGraph(current, 500);
+                Platform.runLater(() -> {
+                    Dialog<Void> dialog = new Dialog<>();
+                    dialog.setTitle("Commit Graph — All Branches");
+                    dialog.setHeaderText("Recent commits and branch topology");
+                    javafx.scene.layout.VBox rows = new javafx.scene.layout.VBox(2);
+                    javafx.scene.paint.Color[] palette = {
+                            javafx.scene.paint.Color.DODGERBLUE,
+                            javafx.scene.paint.Color.MEDIUMSEAGREEN,
+                            javafx.scene.paint.Color.DARKORANGE,
+                            javafx.scene.paint.Color.MEDIUMPURPLE,
+                            javafx.scene.paint.Color.DEEPPINK,
+                            javafx.scene.paint.Color.TEAL
+                    };
+                    for (String line : graph.split("\\R")) {
+                        int boundary = 0;
+                        while (boundary < line.length()
+                                && "*|/\\ ".indexOf(line.charAt(boundary)) >= 0) {
+                            boundary++;
+                        }
+                        javafx.scene.text.TextFlow flow = new javafx.scene.text.TextFlow();
+                        for (int column = 0; column < boundary; column++) {
+                            javafx.scene.text.Text lane = new javafx.scene.text.Text(
+                                    String.valueOf(line.charAt(column)));
+                            lane.setFill(palette[(column / 2) % palette.length]);
+                            lane.setStyle("-fx-font-family: monospace; -fx-font-size: 13px;");
+                            flow.getChildren().add(lane);
+                        }
+                        javafx.scene.text.Text description =
+                                new javafx.scene.text.Text(line.substring(boundary));
+                        description.setStyle("-fx-font-family: monospace; -fx-font-size: 13px;");
+                        flow.getChildren().add(description);
+                        rows.getChildren().add(flow);
+                    }
+                    javafx.scene.control.ScrollPane scroll =
+                            new javafx.scene.control.ScrollPane(rows);
+                    scroll.setFitToWidth(true);
+                    scroll.setPrefViewportWidth(850);
+                    scroll.setPrefViewportHeight(550);
+                    dialog.getDialogPane().setContent(scroll);
+                    dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
+                    dialog.show();
+                });
+            } catch (Exception ex) {
+                Platform.runLater(() -> message.setText("Commit graph: " + ex.getMessage()));
+            }
+        });
+    }
+
     private void chooseDiffLines(boolean unstage) {
         ChangedFile selected = status.getSelectionModel().getSelectedItem();
         if (repository == null || selected == null) {
