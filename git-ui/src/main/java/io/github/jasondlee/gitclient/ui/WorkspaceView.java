@@ -48,6 +48,35 @@ public final class WorkspaceView extends BorderPane {
         Button refresh = new Button("Refresh");
         open.setOnAction(e -> openRepository());
         refresh.setOnAction(e -> refresh());
+        Button clean = new Button("Clean Untracked");
+        clean.setOnAction(e -> {
+            if (repository == null) return;
+            Path current = repository;
+            Thread.startVirtualThread(() -> {
+                try {
+                    var preview = repositories.cleanPreview(current, false);
+                    Platform.runLater(() -> {
+                        if (preview.isEmpty()) {
+                            message.setText("No untracked files to clean.");
+                            return;
+                        }
+                        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION);
+                        confirm.setTitle("Clean Untracked Files");
+                        confirm.setHeaderText("Permanently delete " + preview.size()
+                                + " untracked path(s)?");
+                        TextArea paths = new TextArea(String.join("\n", preview));
+                        paths.setEditable(false);
+                        paths.setPrefRowCount(12);
+                        confirm.getDialogPane().setContent(paths);
+                        confirm.showAndWait().filter(button -> button == ButtonType.OK)
+                                .ifPresent(button -> runBranchAction(
+                                        () -> repositories.cleanUntracked(current, false)));
+                    });
+                } catch (Exception ex) {
+                    Platform.runLater(() -> message.setText("Clean preview: " + ex.getMessage()));
+                }
+            });
+        });
         Button discard = new Button("Discard Tracked");
         Button ignore = new Button("Ignore Pattern");
         discard.setOnAction(e -> {
@@ -585,7 +614,7 @@ public final class WorkspaceView extends BorderPane {
                 worktrees, addWorktree, removeWorktree, submodules,
                 updateSubmodules, createTag, annotatedTag, deleteTag, stash, applyStash, dropStash);
         ToolBar toolbar = new ToolBar(open, recentRepositories, initialize, clone, refresh, stage, unstage, stageHunk, unstageHunk,
-                discard, ignore,
+                discard, clean, ignore,
                 new Separator(), branchSelector, branchesMenu,
                 new Separator(), historyMenu, operationsMenu, advancedMenu,
                 new Separator(), tagSelector, stashSelector,
