@@ -37,8 +37,10 @@ class RepositoryServiceTest {
         var service = new RepositoryService();
         String plan = service.interactiveRebasePlan(directory, "base");
         assertThrows(IllegalArgumentException.class,
-                () -> service.interactiveRebase(directory, "base",
+                () -> service.validateInteractiveRebasePlan(directory, "base",
                         plan.replaceFirst("^pick ", "fixup ")));
+        assertTrue(service.validateInteractiveRebasePlan(directory, "base", plan)
+                .startsWith("pick "));
         Files.writeString(directory.resolve("untracked.txt"), "dirty\n");
         assertThrows(IllegalStateException.class,
                 () -> service.interactiveRebase(directory, "base", plan));
