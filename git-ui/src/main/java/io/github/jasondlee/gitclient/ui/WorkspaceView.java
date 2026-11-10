@@ -1318,7 +1318,9 @@ public final class WorkspaceView extends BorderPane {
                 hash -> javafx.scene.input.Clipboard.getSystemClipboard().setContent(
                         java.util.Map.of(javafx.scene.input.DataFormat.PLAIN_TEXT, hash)),
                 hash -> operateOnCommit(hash, false),
-                hash -> operateOnCommit(hash, true));
+                hash -> operateOnCommit(hash, true),
+                hash -> createReferenceAt(hash, false),
+                hash -> createReferenceAt(hash, true));
     }
 
     private void showCommitDetails(String hash) {
@@ -1335,6 +1337,22 @@ public final class WorkspaceView extends BorderPane {
                     if (revert) repositories.revert(current, hash);
                     else repositories.cherryPick(current, hash);
                 });
+    }
+
+    private void createReferenceAt(String hash, boolean tag) {
+        if (repository == null) return;
+        TextInputDialog dialog = new TextInputDialog();
+        dialog.setTitle(tag ? "Create Tag" : "Create Branch");
+        dialog.setHeaderText("Create " + (tag ? "tag" : "branch")
+                + " at commit " + hash.substring(0, 8));
+        dialog.setContentText(tag ? "Tag name:" : "Branch name:");
+        dialog.showAndWait().filter(name -> !name.isBlank()).ifPresent(name -> {
+            Path current = repository;
+            runBranchAction(() -> {
+                if (tag) repositories.createTagAt(current, name, hash);
+                else repositories.createBranchAt(current, name, hash);
+            });
+        });
     }
 
     private void loadCommitGraph(Path current) {
