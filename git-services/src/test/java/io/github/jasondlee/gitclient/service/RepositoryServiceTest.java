@@ -96,6 +96,19 @@ class RepositoryServiceTest {
                 () -> service.resolveConflictByDeleting(directory, "shared.txt"));
     }
 
+    @Test void submoduleSyncAndWorktreePruneWorkWithoutLinkedRepositories() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        Files.writeString(directory.resolve("file.txt"), "contents\n");
+        git("add", ".");
+        git("commit", "-m", "initial");
+        var service = new RepositoryService();
+        assertDoesNotThrow(() -> service.syncSubmodules(directory));
+        assertDoesNotThrow(() -> service.pruneWorktrees(directory));
+        assertEquals(1, service.worktrees(directory).size());
+    }
+
     @Test void historyPagesDoNotRepeatCommits() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
