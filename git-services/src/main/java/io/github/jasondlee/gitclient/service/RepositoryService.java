@@ -35,6 +35,25 @@ public final class RepositoryService {
         return statusParser.parse(git.run(directory, "status", "--porcelain=v2", "--branch", "-z"));
     }
     /** Stage the entire current contents of the selected paths. */
+    /** Preview untracked files and directories that Git clean would remove. */
+    public List<String> cleanPreview(Path directory, boolean includeIgnored) {
+        Path root = findRepository(directory);
+        String[] args = includeIgnored
+                ? new String[]{"clean", "-n", "-d", "-x", "-z"}
+                : new String[]{"clean", "-n", "-d", "-z"};
+        String output = new String(git.run(root, args), StandardCharsets.UTF_8);
+        return output.lines().filter(line -> line.startsWith("Would remove "))
+                .map(line -> line.substring("Would remove ".length())).toList();
+    }
+    /** Remove untracked files only after the caller has reviewed a clean preview. */
+    public void cleanUntracked(Path directory, boolean includeIgnored) {
+        Path root = findRepository(directory);
+        if (includeIgnored) {
+            git.run(root, "clean", "-f", "-d", "-x");
+        } else {
+            git.run(root, "clean", "-f", "-d");
+        }
+    }
     public void discardChanges(Path directory, List<String> paths) {
         if (paths == null || paths.isEmpty()) return;
         Path root = findRepository(directory);
