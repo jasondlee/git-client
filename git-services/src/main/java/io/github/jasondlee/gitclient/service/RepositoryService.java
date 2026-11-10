@@ -471,6 +471,27 @@ public final class RepositoryService {
         }
         stage(root, List.of(path));
     }
+    /** Resolve a delete/modify conflict by accepting the deletion and staging it. */
+    public void resolveConflictByDeleting(Path directory, String path) {
+        Path root = findRepository(directory);
+        validateRepositoryPath(root, path);
+        Path target = root.resolve(path).normalize();
+        for (Path ancestor = target; ancestor != null && ancestor.startsWith(root);
+                ancestor = ancestor.getParent()) {
+            if (java.nio.file.Files.isSymbolicLink(ancestor)) {
+                throw new IllegalArgumentException("Cannot resolve a conflict through a symbolic link");
+            }
+        }
+        if (!conflictedFiles(root).contains(path)) {
+            throw new IllegalArgumentException("File is not currently conflicted: " + path);
+        }
+        try {
+            java.nio.file.Files.deleteIfExists(target);
+        } catch (java.io.IOException ex) {
+            throw new java.io.UncheckedIOException("Unable to delete conflicted file", ex);
+        }
+        git.run(root, "add", "-u", "--", path);
+    }
     public void continueMerge(Path directory) {
         if (!conflictedFiles(directory).isEmpty()) {
             throw new IllegalStateException("Resolve and stage all conflicts before continuing");
