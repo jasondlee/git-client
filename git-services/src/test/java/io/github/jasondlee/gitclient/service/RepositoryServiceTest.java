@@ -22,6 +22,35 @@ class RepositoryServiceTest {
             throw new java.io.UncheckedIOException(ex);
         }
     }
+    @Test void interactiveRebaseCanReorderAndDropCommits() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
+        Files.writeString(directory.resolve("base.txt"), "base\n");
+        git("add", ".");
+        git("commit", "-m", "base");
+        git("branch", "base");
+        Files.writeString(directory.resolve("first.txt"), "first\n");
+        git("add", ".");
+        git("commit", "-m", "first");
+        Files.writeString(directory.resolve("second.txt"), "second\n");
+        git("add", ".");
+        git("commit", "-m", "second");
+        var service = new RepositoryService();
+        String original = service.interactiveRebasePlan(directory, "base");
+        var lines = original.lines().toList();
+        assertEquals(2, lines.size());
+        assertThrows(IllegalArgumentException.class,
+                () -> service.interactiveRebase(directory, "base", lines.get(0)));
+        String plan = lines.get(1) + "\n"
+                + lines.get(0).replaceFirst("^pick ", "drop ") + "\n";
+        service.interactiveRebase(directory, "base", plan);
+        assertFalse(Files.exists(directory.resolve("first.txt")));
+        assertTrue(Files.exists(directory.resolve("second.txt")));
+        assertEquals(1, service.interactiveRebasePlan(directory, "base").lines().count());
+    }
+
     @Test void selectsIndividualLinesWithinAHunk() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
