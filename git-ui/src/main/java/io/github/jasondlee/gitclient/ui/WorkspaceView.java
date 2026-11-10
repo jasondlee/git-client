@@ -155,6 +155,24 @@ public final class WorkspaceView extends BorderPane {
         switchBranch.setOnAction(e -> switchBranch());
         branchSelector.setPromptText("Local branches");
         Button rebase = new Button("Rebase Onto");
+        Button fixup = new Button("Fixup Selected Commit");
+        Button autosquash = new Button("Autosquash Rebase");
+        fixup.setOnAction(e -> {
+            CommitInfo selected = history.getSelectionModel().getSelectedItem();
+            if (repository == null || selected == null) return;
+            Path current = repository;
+            confirmOperation("Create a fixup commit for " + selected.id().substring(0, 8)
+                            + " from staged changes?",
+                    () -> repositories.createFixupCommit(current, selected.id()));
+        });
+        autosquash.setOnAction(e -> {
+            if (repository == null || branchSelector.getValue() == null) return;
+            Path current = repository;
+            String target = branchSelector.getValue();
+            confirmOperation("Autosquash fixup commits while rebasing onto '" + target
+                            + "'? This rewrites local commit history.",
+                    () -> repositories.rebaseAutosquash(current, target));
+        });
         Button cherryPick = new Button("Cherry-pick");
         Button revert = new Button("Revert");
         rebase.setOnAction(e -> {
@@ -506,8 +524,8 @@ public final class WorkspaceView extends BorderPane {
         stashSelector.setPromptText("Stashes");
         MenuButton branchesMenu = actionsMenu("Branches", createBranch, renameBranch,
                 remoteBranches, trackingBranch, switchBranch,
-                mergeBranch, abortMerge, deleteBranch, rebase);
-        MenuButton historyMenu = actionsMenu("History", cherryPick, revert, compare,
+                mergeBranch, abortMerge, deleteBranch, rebase, autosquash);
+        MenuButton historyMenu = actionsMenu("History", cherryPick, revert, fixup, compare,
                 fileHistory, searchHistory, startBisect, bisectGood, bisectBad,
                 resetBisect, reflog,
                 blame, reset);
