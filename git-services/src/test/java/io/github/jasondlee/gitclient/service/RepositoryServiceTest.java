@@ -169,6 +169,36 @@ class RepositoryServiceTest {
         assertEquals(java.util.List.of("second renamed", "first renamed"), subjects);
     }
 
+    @Test void interactiveRebaseConflictCanBeResolvedAndContinued() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
+        Files.writeString(directory.resolve("shared.txt"), "base\n");
+        git("add", ".");
+        git("commit", "-m", "base");
+        git("branch", "feature");
+        Files.writeString(directory.resolve("shared.txt"), "master change\n");
+        git("add", ".");
+        git("commit", "-m", "master change");
+        git("checkout", "feature");
+        Files.writeString(directory.resolve("shared.txt"), "feature change\n");
+        git("add", ".");
+        git("commit", "-m", "feature change");
+        var service = new RepositoryService();
+        String plan = service.interactiveRebasePlan(directory, "master");
+        assertThrows(RuntimeException.class,
+                () -> service.interactiveRebase(directory, "master", plan));
+        assertTrue(service.rebaseInProgress(directory));
+        assertEquals(java.util.List.of("shared.txt"), service.conflictedFiles(directory));
+        service.resolveConflict(directory, "shared.txt", "resolved change\n");
+        assertTrue(service.conflictedFiles(directory).isEmpty());
+        service.continueRebase(directory);
+        assertFalse(service.rebaseInProgress(directory));
+        assertEquals("resolved change\n", Files.readString(directory.resolve("shared.txt")));
+        assertEquals("feature", service.status(directory).branch());
+    }
+
     @Test void interactiveRebaseSquashesCommits() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
