@@ -1208,6 +1208,7 @@ public final class WorkspaceView extends BorderPane {
         Thread.startVirtualThread(() -> {
             try {
                 if (repositories.binaryConflict(current, path)) {
+                    var availableStages = repositories.conflictStages(current, path);
                     Platform.runLater(() -> {
                         Alert choice = new Alert(Alert.AlertType.CONFIRMATION);
                         choice.setTitle("Resolve Binary Conflict");
@@ -1215,7 +1216,10 @@ public final class WorkspaceView extends BorderPane {
                         choice.setContentText("This file contains binary data. Choose a complete version; it cannot be safely edited as text.");
                         ButtonType ours = new ButtonType("Keep Ours");
                         ButtonType theirs = new ButtonType("Keep Theirs");
-                        choice.getButtonTypes().setAll(ours, theirs, ButtonType.CANCEL);
+                        choice.getButtonTypes().clear();
+                        if (availableStages.contains(2)) choice.getButtonTypes().add(ours);
+                        if (availableStages.contains(3)) choice.getButtonTypes().add(theirs);
+                        choice.getButtonTypes().add(ButtonType.CANCEL);
                         choice.showAndWait().ifPresent(selected -> {
                             if (selected == ours || selected == theirs) {
                                 int stage = selected == ours ? 2 : 3;
