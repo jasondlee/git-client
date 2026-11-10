@@ -22,6 +22,30 @@ class RepositoryServiceTest {
             throw new java.io.UncheckedIOException(ex);
         }
     }
+    @Test void conflictVersionOrEmptyHandlesMissingBaseStage() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        Files.writeString(directory.resolve("initial.txt"), "initial\n");
+        git("add", ".");
+        git("commit", "-m", "initial");
+        git("branch", "feature");
+        Files.writeString(directory.resolve("new.txt"), "master version\n");
+        git("add", ".");
+        git("commit", "-m", "master adds file");
+        git("checkout", "feature");
+        Files.writeString(directory.resolve("new.txt"), "feature version\n");
+        git("add", ".");
+        git("commit", "-m", "feature adds file");
+        var service = new RepositoryService();
+        assertThrows(RuntimeException.class, () -> service.merge(directory, "master"));
+        assertEquals("", service.conflictVersionOrEmpty(directory, "new.txt", 1));
+        assertEquals("feature version\n", service.conflictVersionOrEmpty(directory, "new.txt", 2));
+        assertEquals("master version\n", service.conflictVersionOrEmpty(directory, "new.txt", 3));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.conflictVersionOrEmpty(directory, "new.txt", 4));
+    }
+
     @Test void resolvesModifyDeleteConflictByStagingDeletion() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
