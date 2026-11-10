@@ -278,6 +278,13 @@ public final class WorkspaceView extends BorderPane {
             confirmOperation("End bisect and restore the original branch?",
                     () -> repositories.resetBisect(current));
         });
+        Button graph = new Button("Commit Graph");
+        graph.setOnAction(e -> {
+            if (repository == null) return;
+            Path current = repository;
+            showTextReport("All-branch commit graph",
+                    () -> repositories.commitGraph(current, 200));
+        });
         Button reflog = new Button("Reflog");
         Button blame = new Button("Blame File");
         Button worktrees = new Button("Worktrees");
@@ -565,7 +572,7 @@ public final class WorkspaceView extends BorderPane {
                 mergeBranch, abortMerge, deleteBranch, rebase, autosquash);
         MenuButton historyMenu = actionsMenu("History", cherryPick, revert, fixup, compare,
                 fileHistory, searchHistory, startBisect, bisectGood, bisectBad,
-                resetBisect, reflog,
+                resetBisect, graph, reflog,
                 blame, reset);
         MenuButton operationsMenu = actionsMenu("Operations", continueOperation,
                 abortOperation, skipRebase, conflicts);
