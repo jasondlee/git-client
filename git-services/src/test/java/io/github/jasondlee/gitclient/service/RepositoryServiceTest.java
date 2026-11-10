@@ -1108,6 +1108,7 @@ class RepositoryServiceTest {
         var service = new RepositoryService();
         assertEquals("master", service.status(directory).branch());
         assertTrue(service.history(directory, 100).isEmpty());
+        assertEquals("", service.commitGraph(directory, 100));
     }
     @Test void readsRealRepositoryStatusAndHistory() throws Exception {
         git("init", "-b", "master");
