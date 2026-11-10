@@ -39,6 +39,22 @@ GitHub Actions provides two separate workflows:
 
 Packaging has not yet been verified on every runner. These application bundles are not signed or notarized, and are not yet MSI, DMG, or DEB installers. Do not treat them as production releases until packaging and launch smoke tests pass on each OS.
 
+## Workspace preferences and accessibility
+
+Open **Preferences** in the toolbar to configure the number of recent commits
+loaded (25–1000) and whether diffs wrap long lines. These settings persist
+between application launches. Confirmation prompts for history-rewriting and
+destructive actions remain enabled for safety.
+
+Open **Shortcuts** in the toolbar for the complete keyboard reference.
+Use the platform shortcut key (Command on macOS, Control elsewhere):
+**O** opens a repository, **R** refreshes, **Enter** commits,
+**F** focuses history search, **G** opens graph search,
+**1/2/3** select the diff views, and **/** displays shortcut help.
+The workspace provides accessible descriptions for its primary controls.
+A progress indicator appears during repository refreshes and Git operations;
+failed Git actions display a selectable error-details dialog.
+
 ## Commit history and graph
 
 The main workspace has **Recent commits** and **Branch graph** tabs. Recent
