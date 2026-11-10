@@ -29,6 +29,14 @@ jobs:
         run: mvn --batch-mode --no-transfer-progress install
       - name: Create modular runtime image
         run: mvn --batch-mode --no-transfer-progress -pl git-app javafx:jlink
+      - name: Verify runtime includes application module
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            git-app/target/image/bin/java.exe --describe-module gitclient.app
+          else
+            git-app/target/image/bin/java --describe-module gitclient.app
+          fi
       - name: Create platform application bundle
         shell: bash
         run: |
