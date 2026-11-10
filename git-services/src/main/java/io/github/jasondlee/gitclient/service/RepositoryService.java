@@ -681,7 +681,7 @@ public final class RepositoryService {
 
     /**
      * Apply a validated interactive rebase plan. Every original commit must occur
-     * exactly once, with an action of pick, reword, edit, squash, fixup, or drop.
+     * exactly once, with an action of pick, squash, fixup, or drop.
      * The editor is a temporary Java source-file program, avoiding shell-specific
      * sed scripts and external scripting dependencies.
      */
@@ -695,6 +695,11 @@ public final class RepositoryService {
                 StandardCharsets.UTF_8).isBlank()) {
             throw new IllegalStateException("Commit or stash working tree changes before rebasing");
         }
+        if (!new String(git.run(root, "rev-list", "--merges", baseBranch + "..HEAD"),
+                StandardCharsets.UTF_8).isBlank()) {
+            throw new IllegalArgumentException(
+                    "Interactive rebase currently supports linear commit history only");
+        }
         String original = interactiveRebasePlan(root, baseBranch);
         java.util.Set<String> expected = new java.util.HashSet<>();
         for (String line : original.lines().filter(line -> !line.isBlank()).toList()) {
@@ -706,8 +711,7 @@ public final class RepositoryService {
         for (String line : Objects.requireNonNull(plan, "plan").lines().toList()) {
             if (line.isBlank() || line.stripLeading().startsWith("#")) continue;
             String[] parts = line.strip().split("\\s+", 3);
-            if (parts.length < 2 || !List.of("pick", "reword", "edit", "squash",
-                    "fixup", "drop").contains(parts[0]) || !expected.contains(parts[1])
+            if (parts.length < 2 || !List.of("pick", "squash", "fixup", "drop").contains(parts[0]) || !expected.contains(parts[1])
                     || !seen.add(parts[1])) {
                 throw new IllegalArgumentException("Invalid rebase action or commit: " + line);
             }
