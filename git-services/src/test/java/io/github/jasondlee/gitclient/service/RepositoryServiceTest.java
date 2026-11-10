@@ -232,6 +232,71 @@ class RepositoryServiceTest {
         assertEquals("later rewritten", service.history(directory, 1).getFirst().subject());
     }
 
+    @Test void interactiveRebaseRejectsMalformedPlansWithoutRewritingHistory() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
+        Files.writeString(directory.resolve("base.txt"), "base\n");
+        git("add", ".");
+        git("commit", "-m", "base");
+        git("branch", "base");
+        Files.writeString(directory.resolve("one.txt"), "one\n");
+        git("add", ".");
+        git("commit", "-m", "one");
+        Files.writeString(directory.resolve("two.txt"), "two\n");
+        git("add", ".");
+        git("commit", "-m", "two");
+        var service = new RepositoryService();
+        var lines = service.interactiveRebasePlan(directory, "base").lines().toList();
+        String first = lines.get(0);
+        String second = lines.get(1);
+        String originalHead = service.history(directory, 1).getFirst().id();
+        for (String invalid : java.util.List.of(
+                first + "\n",
+                first + "\n" + first + "\n",
+                first.replaceFirst("^pick ", "delete ") + "\n" + second + "\n",
+                first.replaceFirst("^pick ", "squash ") + "\n" + second + "\n",
+                first.replaceFirst("^pick ", "drop ") + "\n"
+                        + second.replaceFirst("^pick ", "fixup ") + "\n")) {
+            assertThrows(IllegalArgumentException.class,
+                    () -> service.validateInteractiveRebasePlan(directory, "base", invalid));
+            assertEquals(originalHead, service.history(directory, 1).getFirst().id());
+        }
+        String reword = first.replaceFirst("^pick ", "reword ") + "\n" + second + "\n";
+        assertThrows(IllegalArgumentException.class,
+                () -> service.interactiveRebase(directory, "base", reword,
+                        java.util.Map.of("not-a-commit", "message")));
+        assertEquals(originalHead, service.history(directory, 1).getFirst().id());
+    }
+
+    @Test void interactiveRebaseCanSkipConflictingCommit() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
+        Files.writeString(directory.resolve("shared.txt"), "base\n");
+        git("add", ".");
+        git("commit", "-m", "base");
+        git("branch", "feature");
+        Files.writeString(directory.resolve("shared.txt"), "master\n");
+        git("add", ".");
+        git("commit", "-m", "master change");
+        git("checkout", "feature");
+        Files.writeString(directory.resolve("shared.txt"), "feature\n");
+        git("add", ".");
+        git("commit", "-m", "feature change");
+        var service = new RepositoryService();
+        String plan = service.interactiveRebasePlan(directory, "master");
+        assertThrows(RuntimeException.class,
+                () -> service.interactiveRebase(directory, "master", plan));
+        assertTrue(service.rebaseInProgress(directory));
+        service.skipRebase(directory);
+        assertFalse(service.rebaseInProgress(directory));
+        assertEquals("feature", service.status(directory).branch());
+        assertEquals("master\n", Files.readString(directory.resolve("shared.txt")));
+    }
+
     @Test void interactiveRebaseSquashesCommits() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
