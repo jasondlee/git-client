@@ -605,7 +605,7 @@ public final class WorkspaceView extends BorderPane {
         stashSelector.setPromptText("Stashes");
         MenuButton branchesMenu = actionsMenu("Branches", createBranch, renameBranch,
                 remoteBranches, trackingBranch, switchBranch,
-                mergeBranch, abortMerge, deleteBranch, rebase, autosquash);
+                mergeBranch, abortMerge, deleteBranch, rebase, autosquash, interactiveRebase);
         MenuButton historyMenu = actionsMenu("History", cherryPick, revert, fixup, compare,
                 fileHistory, searchHistory, startBisect, bisectGood, bisectBad,
                 resetBisect, graph, reflog,
@@ -928,6 +928,48 @@ public final class WorkspaceView extends BorderPane {
             }
         });
     }
+    private void showInteractiveRebase() {
+        if (repository == null || branchSelector.getValue() == null) {
+            message.setText("Choose a base branch before interactive rebase.");
+            return;
+        }
+        Path current = repository;
+        String base = branchSelector.getValue();
+        Thread.startVirtualThread(() -> {
+            try {
+                String initial = repositories.interactiveRebasePlan(current, base);
+                Platform.runLater(() -> {
+                    if (initial.isBlank()) {
+                        message.setText("No commits to rebase onto " + base);
+                        return;
+                    }
+                    Dialog<String> dialog = new Dialog<>();
+                    dialog.setTitle("Interactive Rebase onto " + base);
+                    dialog.setHeaderText("Reorder commits or change pick to squash, fixup, or drop");
+                    TextArea editor = new TextArea(initial);
+                    editor.setStyle("-fx-font-family: monospace;");
+                    editor.setPrefColumnCount(100);
+                    editor.setPrefRowCount(18);
+                    Label instructions = new Label(
+                            "Each commit must appear exactly once. Actions: pick, squash, fixup, drop, reword, edit. "
+                                    + "Squash/fixup must follow a kept commit. This rewrites history.");
+                    instructions.setWrapText(true);
+                    VBox content = new VBox(8, instructions, editor);
+                    dialog.getDialogPane().setContent(content);
+                    dialog.getDialogPane().getButtonTypes().addAll(
+                            ButtonType.OK, ButtonType.CANCEL);
+                    dialog.setResultConverter(button -> button == ButtonType.OK
+                            ? editor.getText() : null);
+                    dialog.showAndWait().ifPresent(plan ->
+                            confirmOperation("Rewrite local commits using this interactive rebase plan?",
+                                    () -> repositories.interactiveRebase(current, base, plan)));
+                });
+            } catch (Exception ex) {
+                Platform.runLater(() -> message.setText("Interactive rebase: " + ex.getMessage()));
+            }
+        });
+    }
+
     private void showCommitGraph(Path current) {
         Thread.startVirtualThread(() -> {
             try {
