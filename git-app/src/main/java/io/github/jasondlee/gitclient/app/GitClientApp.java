@@ -48,6 +48,16 @@ public final class GitClientApp extends Application {
                 new KeyCodeCombination(KeyCode.T, KeyCombination.SHORTCUT_DOWN),
                 () -> addRepositoryTab(null));
         scene.getAccelerators().put(
+                new KeyCodeCombination(KeyCode.T, KeyCombination.SHORTCUT_DOWN,
+                        KeyCombination.SHIFT_DOWN),
+                () -> {
+                    if (!closedPaths.isEmpty()) {
+                        Path path = closedPaths.removeFirst();
+                        updateClosedMenu();
+                        if (Files.isDirectory(path)) addRepositoryTab(path);
+                    }
+                });
+        scene.getAccelerators().put(
                 new KeyCodeCombination(KeyCode.W, KeyCombination.SHORTCUT_DOWN),
                 () -> {
                     Tab selected = repositories.getSelectionModel().getSelectedItem();
