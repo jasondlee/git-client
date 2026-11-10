@@ -370,9 +370,18 @@ public final class WorkspaceView extends BorderPane {
         reflog.setOnAction(e -> showTextReport("Reflog",
                 () -> String.join("\n", repositories.reflog(repository, 100))));
         blame.setOnAction(e -> {
+            if (repository == null) return;
             ChangedFile selected = status.getSelectionModel().getSelectedItem();
-            if (selected != null) showTextReport("Blame: " + selected.path(),
-                    () -> repositories.blame(repository, selected.path()));
+            TextInputDialog dialog = new TextInputDialog(selected == null ? "" : selected.path());
+            dialog.setTitle("Blame File");
+            dialog.setHeaderText("Show line-by-line authorship for a tracked file");
+            dialog.setContentText("Repository-relative file path:");
+            dialog.showAndWait().map(String::strip).filter(path -> !path.isEmpty())
+                    .ifPresent(path -> {
+                        Path current = repository;
+                        showTextReport("Blame: " + path,
+                                () -> repositories.blame(current, path));
+                    });
         });
         worktrees.setOnAction(e -> showTextReport("Worktrees",
                 () -> String.join("\n", repositories.worktrees(repository))));
