@@ -658,6 +658,43 @@ public final class WorkspaceView extends BorderPane {
             @Override protected void updateItem(CommitInfo item, boolean empty) {
                 super.updateItem(item, empty);
                 setText(empty || item == null ? null : item.id().substring(0, 8) + "  " + item.subject() + "  — " + item.author());
+                if (empty || item == null) {
+                    setContextMenu(null);
+                    return;
+                }
+                ContextMenu menu = new ContextMenu();
+                MenuItem details = new MenuItem("Show Commit");
+                details.setOnAction(event -> {
+                    if (repository != null) {
+                        Path current = repository;
+                        showTextReport("Commit " + item.id(),
+                                () -> repositories.showCommit(current, item.id()));
+                    }
+                });
+                MenuItem copyHash = new MenuItem("Copy Commit Hash");
+                copyHash.setOnAction(event -> javafx.scene.input.Clipboard.getSystemClipboard()
+                        .setContent(java.util.Map.of(
+                                javafx.scene.input.DataFormat.PLAIN_TEXT, item.id())));
+                MenuItem cherryPick = new MenuItem("Cherry-pick Commit");
+                cherryPick.setOnAction(event -> {
+                    if (repository != null) {
+                        Path current = repository;
+                        confirmOperation("Cherry-pick commit " + item.id().substring(0, 8) + "?",
+                                () -> repositories.cherryPick(current, item.id()));
+                    }
+                });
+                MenuItem revert = new MenuItem("Revert Commit");
+                revert.setOnAction(event -> {
+                    if (repository != null) {
+                        Path current = repository;
+                        confirmOperation("Create a revert commit for "
+                                        + item.id().substring(0, 8) + "?",
+                                () -> repositories.revert(current, item.id()));
+                    }
+                });
+                menu.getItems().addAll(details, copyHash, new SeparatorMenuItem(),
+                        cherryPick, revert);
+                setContextMenu(menu);
             }
         });
         SplitPane panes = new SplitPane(new VBox(new Label("Working tree"), status), new VBox(new Label("Recent commits"), history));
