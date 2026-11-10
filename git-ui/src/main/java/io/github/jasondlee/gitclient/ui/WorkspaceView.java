@@ -1326,18 +1326,36 @@ public final class WorkspaceView extends BorderPane {
                                 && "*|/\\ ".indexOf(line.charAt(boundary)) >= 0) {
                             boundary++;
                         }
-                        javafx.scene.text.TextFlow flow = new javafx.scene.text.TextFlow();
+                        final double cell = 12;
+                        final double rowHeight = 24;
+                        javafx.scene.canvas.Canvas lanes =
+                                new javafx.scene.canvas.Canvas(Math.max(1, boundary) * cell, rowHeight);
+                        javafx.scene.canvas.GraphicsContext gc = lanes.getGraphicsContext2D();
+                        gc.setLineWidth(2.2);
                         for (int column = 0; column < boundary; column++) {
-                            javafx.scene.text.Text lane = new javafx.scene.text.Text(
-                                    String.valueOf(line.charAt(column)));
-                            lane.setFill(palette[(column / 2) % palette.length]);
-                            lane.setStyle("-fx-font-family: monospace; -fx-font-size: 13px;");
-                            flow.getChildren().add(lane);
+                            char symbol = line.charAt(column);
+                            double x = column * cell + cell / 2;
+                            double middle = rowHeight / 2;
+                            gc.setStroke(palette[(column / 2) % palette.length]);
+                            gc.setFill(palette[(column / 2) % palette.length]);
+                            switch (symbol) {
+                                case '|' -> gc.strokeLine(x, 0, x, rowHeight);
+                                case '/' -> gc.strokeLine(x + cell / 2, 0,
+                                        x - cell / 2, rowHeight);
+                                case '\\\\' -> gc.strokeLine(x - cell / 2, 0,
+                                        x + cell / 2, rowHeight);
+                                case '*' -> {
+                                    gc.strokeLine(x, 0, x, rowHeight);
+                                    gc.fillOval(x - 4.5, middle - 4.5, 9, 9);
+                                }
+                                default -> { }
+                            }
                         }
-                        javafx.scene.text.Text description =
-                                new javafx.scene.text.Text(line.substring(boundary));
+                        Label description = new Label(line.substring(boundary));
                         description.setStyle("-fx-font-family: monospace; -fx-font-size: 13px;");
-                        flow.getChildren().add(description);
+                        javafx.scene.layout.HBox flow = new javafx.scene.layout.HBox(6,
+                                lanes, description);
+                        flow.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
                         java.util.regex.Matcher commitId =
                                 java.util.regex.Pattern.compile(
                                         "(?<![0-9a-fA-F])[0-9a-fA-F]{7,40}(?![0-9a-fA-F])")
