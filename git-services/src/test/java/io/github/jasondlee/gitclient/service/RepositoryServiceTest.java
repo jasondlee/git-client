@@ -22,6 +22,30 @@ class RepositoryServiceTest {
             throw new java.io.UncheckedIOException(ex);
         }
     }
+    @Test void createsFixupAndAutosquashesIntoTargetCommit() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
+        Files.writeString(directory.resolve("base.txt"), "base\n");
+        git("add", "base.txt");
+        git("commit", "-m", "base");
+        var service = new RepositoryService();
+        service.createBranch(directory, "feature");
+        service.switchBranch(directory, "feature");
+        Files.writeString(directory.resolve("feature.txt"), "original\n");
+        git("add", "feature.txt");
+        git("commit", "-m", "feature");
+        String target = service.history(directory, 1).getFirst().id();
+        Files.writeString(directory.resolve("feature.txt"), "updated\n");
+        git("add", "feature.txt");
+        service.createFixupCommit(directory, target);
+        assertEquals(3, service.history(directory, 10).size());
+        service.rebaseAutosquash(directory, "master");
+        assertEquals(2, service.history(directory, 10).size());
+        assertEquals("feature", service.history(directory, 1).getFirst().subject());
+        assertEquals("updated\n", Files.readString(directory.resolve("feature.txt")));
+    }
     @Test void startsAndResetsBisect() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
