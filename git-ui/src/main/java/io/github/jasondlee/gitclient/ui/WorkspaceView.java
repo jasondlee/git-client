@@ -1023,11 +1023,21 @@ public final class WorkspaceView extends BorderPane {
                         String[] fields = line.split(" ", 3);
                         if (fields[0].equals(action.getValue())) return;
                         if (action.getValue().equals("reword")) {
-                            TextInputDialog messageDialog = new TextInputDialog(
-                                    fields.length > 2 ? fields[2] : "");
+                            Dialog<String> messageDialog = new Dialog<>();
                             messageDialog.setTitle("Reword Commit");
-                            messageDialog.setHeaderText("New commit subject for " + fields[1].substring(0, 8));
-                            messageDialog.setContentText("Commit subject:");
+                            messageDialog.setHeaderText(
+                                    "New commit message for " + fields[1].substring(0, 8));
+                            TextArea messageEditor = new TextArea(
+                                    fields.length > 2 ? fields[2] : "");
+                            messageEditor.setPromptText("Subject, optionally followed by a blank line and body");
+                            messageEditor.setPrefRowCount(7);
+                            messageEditor.setPrefColumnCount(65);
+                            messageEditor.setWrapText(true);
+                            messageDialog.getDialogPane().setContent(messageEditor);
+                            messageDialog.getDialogPane().getButtonTypes().addAll(
+                                    ButtonType.OK, ButtonType.CANCEL);
+                            messageDialog.setResultConverter(button ->
+                                    button == ButtonType.OK ? messageEditor.getText() : null);
                             java.util.Optional<String> replacement = messageDialog.showAndWait();
                             if (replacement.isEmpty() || replacement.get().isBlank()) {
                                 action.setValue(fields[0]);
@@ -1063,7 +1073,7 @@ public final class WorkspaceView extends BorderPane {
                         }
                     });
                     Label instructions = new Label(
-                            "Select a commit to choose its action (Reword prompts for a new subject). Drag to reorder. "
+                            "Select a commit to choose its action (Reword opens a message editor). Drag to reorder. "
                                     + "Squash/fixup must follow a kept commit. "
                                     + "This rewrites local history.");
                     instructions.setWrapText(true);
