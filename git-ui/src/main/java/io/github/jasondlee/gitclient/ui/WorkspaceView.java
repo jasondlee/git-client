@@ -946,20 +946,57 @@ public final class WorkspaceView extends BorderPane {
                     Dialog<String> dialog = new Dialog<>();
                     dialog.setTitle("Interactive Rebase onto " + base);
                     dialog.setHeaderText("Reorder commits or change pick to squash, fixup, or drop");
-                    TextArea editor = new TextArea(initial);
-                    editor.setStyle("-fx-font-family: monospace;");
-                    editor.setPrefColumnCount(100);
-                    editor.setPrefRowCount(18);
+                    javafx.collections.ObservableList<String> commits =
+                            javafx.collections.FXCollections.observableArrayList(initial.lines().toList());
+                    ListView<String> commitList = new ListView<>(commits);
+                    commitList.setPrefHeight(360);
+                    commitList.setPrefWidth(750);
+                    commitList.getSelectionModel().selectFirst();
+                    ComboBox<String> action = new ComboBox<>(
+                            javafx.collections.FXCollections.observableArrayList(
+                                    "pick", "squash", "fixup", "drop"));
+                    action.setValue("pick");
+                    action.setOnAction(event -> {
+                        int index = commitList.getSelectionModel().getSelectedIndex();
+                        if (index < 0) return;
+                        String line = commits.get(index);
+                        commits.set(index, action.getValue() + line.substring(line.indexOf(' ')));
+                        commitList.getSelectionModel().select(index);
+                    });
+                    commitList.getSelectionModel().selectedItemProperty().addListener(
+                            (observable, previous, selected) -> {
+                                if (selected != null) {
+                                    action.setValue(selected.substring(0, selected.indexOf(' ')));
+                                }
+                            });
+                    Button up = new Button("Move Up");
+                    Button down = new Button("Move Down");
+                    up.setOnAction(event -> {
+                        int index = commitList.getSelectionModel().getSelectedIndex();
+                        if (index > 0) {
+                            java.util.Collections.swap(commits, index, index - 1);
+                            commitList.getSelectionModel().select(index - 1);
+                        }
+                    });
+                    down.setOnAction(event -> {
+                        int index = commitList.getSelectionModel().getSelectedIndex();
+                        if (index >= 0 && index < commits.size() - 1) {
+                            java.util.Collections.swap(commits, index, index + 1);
+                            commitList.getSelectionModel().select(index + 1);
+                        }
+                    });
                     Label instructions = new Label(
-                            "Each commit must appear exactly once. Actions: pick, squash, fixup, drop. "
-                                    + "Squash/fixup must follow a kept commit. This rewrites history.");
+                            "Select a commit to change its action or move it. "
+                                    + "Squash/fixup must follow a kept commit. "
+                                    + "This rewrites local history.");
                     instructions.setWrapText(true);
-                    VBox content = new VBox(8, instructions, editor);
+                    HBox controls = new HBox(8, new Label("Action:"), action, up, down);
+                    VBox content = new VBox(8, instructions, commitList, controls);
                     dialog.getDialogPane().setContent(content);
                     dialog.getDialogPane().getButtonTypes().addAll(
                             ButtonType.OK, ButtonType.CANCEL);
                     dialog.setResultConverter(button -> button == ButtonType.OK
-                            ? editor.getText() : null);
+                            ? String.join("\\n", commits) + "\\n" : null);
                     dialog.showAndWait().ifPresent(plan ->
                             confirmOperation("Rewrite local commits using this interactive rebase plan?",
                                     () -> repositories.interactiveRebase(current, base, plan)));
