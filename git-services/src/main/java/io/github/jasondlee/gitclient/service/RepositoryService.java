@@ -681,11 +681,16 @@ public final class RepositoryService {
 
     /**
      * Apply a validated interactive rebase plan. Every original commit must occur
-     * exactly once, with an action of pick, squash, fixup, or drop.
+     * exactly once, with an action of pick, reword, squash, fixup, or drop.
      * The editor is a temporary Java source-file program, avoiding shell-specific
      * sed scripts and external scripting dependencies.
      */
     public void interactiveRebase(Path directory, String baseBranch, String plan) {
+        interactiveRebase(directory, baseBranch, plan, Map.of());
+    }
+
+    public void interactiveRebase(Path directory, String baseBranch, String plan,
+            Map<String, String> replacementMessages) {
         validateBranchName(baseBranch);
         Path root = findRepository(directory);
         if (!branches(root).contains(baseBranch)) {
@@ -702,29 +707,87 @@ public final class RepositoryService {
         }
         String original = interactiveRebasePlan(root, baseBranch);
         String todo = validateInteractiveRebasePlan(original, plan);
+        Map<String, String> messages = Objects.requireNonNull(replacementMessages,
+                "replacementMessages");
+        Map<String, String> subjects = new LinkedHashMap<>();
+        for (String line : todo.lines().filter(line -> !line.isBlank()).toList()) {
+            String[] tokens = line.split(" ", 2);
+            if (!tokens[0].equals("reword")) continue;
+            String replacement = messages.get(tokens[1]);
+            if (replacement == null || replacement.isBlank()
+                    || replacement.indexOf('\\0') >= 0) {
+                throw new IllegalArgumentException("A nonempty replacement message is required for " + tokens[1]);
+            }
+            String originalMessage = new String(git.run(root, "log", "-1", "--format=%B",
+                    tokens[1]), StandardCharsets.UTF_8);
+            String subject = originalMessage.lines().findFirst().orElse("");
+            if (subject.isBlank() || subjects.putIfAbsent(subject, replacement) != null) {
+                throw new IllegalArgumentException("Cannot reword commits with duplicate or empty subjects");
+            }
+        }
+        if (!messages.keySet().equals(
+                todo.lines().filter(line -> line.startsWith("reword "))
+                        .map(line -> line.split(" ", 2)[1]).collect(java.util.stream.Collectors.toSet()))) {
+            throw new IllegalArgumentException("Replacement messages must match reword commits");
+        }
         Path editor = null;
         Path instructions = null;
+        Path messageMap = null;
         try {
             editor = java.nio.file.Files.createTempFile("git-client-editor-", ".java");
             instructions = java.nio.file.Files.createTempFile("git-client-rebase-", ".todo");
             java.nio.file.Files.writeString(editor, """
+                    import java.nio.charset.StandardCharsets;
                     import java.nio.file.*;
+                    import java.util.Base64;
                     class GitClientSequenceEditor {
                         public static void main(String[] args) throws Exception {
-                            Files.copy(Path.of(args[0]), Path.of(args[1]),
-                                    StandardCopyOption.REPLACE_EXISTING);
+                            if (args[0].equals("sequence")) {
+                                Files.copy(Path.of(args[1]), Path.of(args[2]),
+                                        StandardCopyOption.REPLACE_EXISTING);
+                                return;
+                            }
+                            Path target = Path.of(args[2]);
+                            String first = Files.readString(target, StandardCharsets.UTF_8)
+                                    .lines().findFirst().orElse("");
+                            for (String line : Files.readAllLines(Path.of(args[1]))) {
+                                String[] pair = line.split("\\t", 2);
+                                String original = new String(Base64.getDecoder().decode(pair[0]),
+                                        StandardCharsets.UTF_8);
+                                if (first.equals(original)) {
+                                    String replacement = new String(Base64.getDecoder().decode(pair[1]),
+                                            StandardCharsets.UTF_8);
+                                    Files.writeString(target, replacement.stripTrailing() + "\\n",
+                                            StandardCharsets.UTF_8);
+                                    return;
+                                }
+                            }
                         }
                     }
                     """);
             java.nio.file.Files.writeString(instructions, todo);
-            String command = "java \"" + editor.toString().replace('\\', '/')
-                    + "\" \"" + instructions.toString().replace('\\', '/') + "\"";
-            git.run(root, "-c", "sequence.editor=" + command,
-                    "-c", "core.editor=true", "rebase", "-i", baseBranch);
+            messageMap = java.nio.file.Files.createTempFile("git-client-messages-", ".map");
+            StringBuilder mapping = new StringBuilder();
+            for (var entry : subjects.entrySet()) {
+                mapping.append(Base64.getEncoder().encodeToString(
+                        entry.getKey().getBytes(StandardCharsets.UTF_8)))
+                        .append('\\t').append(Base64.getEncoder().encodeToString(
+                                entry.getValue().getBytes(StandardCharsets.UTF_8)))
+                        .append('\\n');
+            }
+            java.nio.file.Files.writeString(messageMap, mapping.toString());
+            String javaEditor = "java \\"" + editor.toString().replace('\\\\', '/')
+                    + "\\"";
+            String sequenceCommand = javaEditor + " sequence \\""
+                    + instructions.toString().replace('\\\\', '/') + "\\"";
+            String messageCommand = javaEditor + " message \\""
+                    + messageMap.toString().replace('\\\\', '/') + "\\"";
+            git.run(root, "-c", "sequence.editor=" + sequenceCommand,
+                    "-c", "core.editor=" + messageCommand, "rebase", "-i", baseBranch);
         } catch (java.io.IOException ex) {
             throw new java.io.UncheckedIOException("Unable to prepare rebase editor", ex);
         } finally {
-            for (Path temporary : new Path[]{editor, instructions}) {
+            for (Path temporary : new Path[]{editor, instructions, messageMap}) {
                 if (temporary != null) {
                     try {
                         java.nio.file.Files.deleteIfExists(temporary);
@@ -752,7 +815,7 @@ public final class RepositoryService {
         for (String line : Objects.requireNonNull(plan, "plan").lines().toList()) {
             if (line.isBlank() || line.stripLeading().startsWith("#")) continue;
             String[] parts = line.strip().split("\\s+", 3);
-            if (parts.length < 2 || !List.of("pick", "squash", "fixup", "drop").contains(parts[0]) || !expected.contains(parts[1])
+            if (parts.length < 2 || !List.of("pick", "reword", "squash", "fixup", "drop").contains(parts[0]) || !expected.contains(parts[1])
                     || !seen.add(parts[1])) {
                 throw new IllegalArgumentException("Invalid rebase action or commit: " + line);
             }
