@@ -29,7 +29,23 @@ jobs:
       - name: Create modular runtime image
         run: mvn --batch-mode --no-transfer-progress -pl git-app javafx:jlink
       - name: Create platform application bundle
-        run: jpackage --type app-image --name GitClient --runtime-image git-app/target/image --module gitclient.app/io.github.jasondlee.gitclient.app.GitClientApp --dest dist
+        shell: bash
+        run: |
+          jpackage --type app-image --name GitClient \
+            --runtime-image git-app/target/image \
+            --module gitclient.app/io.github.jasondlee.gitclient.app.GitClientApp \
+            --dest dist
+      - name: Verify application bundle exists
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            test -d dist/GitClient.app
+            test -x dist/GitClient.app/Contents/MacOS/GitClient
+          elif [[ "$RUNNER_OS" == "Windows" ]]; then
+            test -f dist/GitClient/GitClient.exe
+          else
+            test -x dist/GitClient/bin/GitClient
+          fi
       - name: Archive Linux application bundle
         if: runner.os == 'Linux'
         shell: bash
