@@ -734,12 +734,11 @@ public final class RepositoryService {
                         .map(line -> line.split(" ", 2)[1]).collect(java.util.stream.Collectors.toSet()))) {
             throw new IllegalArgumentException("Replacement messages must match reword commits");
         }
-        Path editor = null;
-        Path instructions = null;
-        Path messageMap = null;
+        Path gitDirectory = gitDirectory(root);
+        Path editor = gitDirectory.resolve("git-client-rebase-editor.java");
+        Path instructions = gitDirectory.resolve("git-client-rebase-plan.todo");
+        Path messageMap = gitDirectory.resolve("git-client-rebase-messages.map");
         try {
-            editor = java.nio.file.Files.createTempFile("git-client-editor-", ".java");
-            instructions = java.nio.file.Files.createTempFile("git-client-rebase-", ".todo");
             java.nio.file.Files.writeString(editor, """
                     import java.nio.charset.StandardCharsets;
                     import java.nio.file.*;
@@ -774,7 +773,6 @@ public final class RepositoryService {
                     }
                     """);
             java.nio.file.Files.writeString(instructions, todo);
-            messageMap = java.nio.file.Files.createTempFile("git-client-messages-", ".map");
             StringBuilder mapping = new StringBuilder();
             for (var entry : subjects) {
                 mapping.append(Base64.getEncoder().encodeToString(
@@ -795,15 +793,7 @@ public final class RepositoryService {
         } catch (java.io.IOException ex) {
             throw new java.io.UncheckedIOException("Unable to prepare rebase editor", ex);
         } finally {
-            for (Path temporary : new Path[]{editor, instructions, messageMap}) {
-                if (temporary != null) {
-                    try {
-                        java.nio.file.Files.deleteIfExists(temporary);
-                    } catch (java.io.IOException ignored) {
-                        temporary.toFile().deleteOnExit();
-                    }
-                }
-            }
+            if (!rebaseInProgress(root)) cleanupInteractiveRebaseFiles(root);
         }
     }
 
@@ -857,12 +847,40 @@ public final class RepositoryService {
         git.run(findRepository(directory), "rebase", branchName);
     }
     public void continueRebase(Path directory) {
-        git.run(findRepository(directory), "rebase", "--continue");
+        Path root = findRepository(directory);
+        Path editor = gitDirectory(root).resolve("git-client-rebase-editor.java");
+        Path messages = gitDirectory(root).resolve("git-client-rebase-messages.map");
+        String command = java.nio.file.Files.isRegularFile(editor)
+                && java.nio.file.Files.isRegularFile(messages)
+                ? "java \\"" + editor.toString().replace('\\\\', '/')
+                        + "\\" message \\"" + messages.toString().replace('\\\\', '/') + "\\""
+                : "true";
+        try {
+            git.run(root, "-c", "core.editor=" + command, "rebase", "--continue");
+        } finally {
+            if (!rebaseInProgress(root)) cleanupInteractiveRebaseFiles(root);
+        }
     }
+    private Path gitDirectory(Path root) {
+        return Path.of(new String(git.run(root, "rev-parse",
+                "--absolute-git-dir"), StandardCharsets.UTF_8).strip());
+    }
+
+    private void cleanupInteractiveRebaseFiles(Path root) {
+        Path directory = gitDirectory(root);
+        for (String name : List.of("git-client-rebase-editor.java",
+                "git-client-rebase-plan.todo", "git-client-rebase-messages.map")) {
+            try {
+                java.nio.file.Files.deleteIfExists(directory.resolve(name));
+            } catch (java.io.IOException ignored) {
+                directory.resolve(name).toFile().deleteOnExit();
+            }
+        }
+    }
+
     public boolean rebaseInProgress(Path directory) {
         Path root = findRepository(directory);
-        Path gitDirectory = Path.of(new String(git.run(root, "rev-parse",
-                "--absolute-git-dir"), StandardCharsets.UTF_8).strip());
+        Path gitDirectory = gitDirectory(root);
         return java.nio.file.Files.isDirectory(gitDirectory.resolve("rebase-merge"))
                 || java.nio.file.Files.isDirectory(gitDirectory.resolve("rebase-apply"));
     }
@@ -902,7 +920,9 @@ public final class RepositoryService {
         git.run(findRepository(directory), "rebase", "--skip");
     }
     public void abortRebase(Path directory) {
-        git.run(findRepository(directory), "rebase", "--abort");
+        Path root = findRepository(directory);
+        git.run(root, "rebase", "--abort");
+        cleanupInteractiveRebaseFiles(root);
     }
     private void validateCommitId(String commitId) {
         if (commitId == null || !commitId.matches("[0-9a-fA-F]{7,64}")) {
