@@ -592,7 +592,7 @@ public final class WorkspaceView extends BorderPane {
                 new Separator(), remoteSelector, remoteMenu, fetch, pull, push,
                 new Separator(), branch, location);
         setTop(toolbar);
-        getSceneProperty().addListener((obs, oldScene, scene) -> {
+        sceneProperty().addListener((obs, oldScene, scene) -> {
             if (scene == null) return;
             scene.getAccelerators().put(new KeyCodeCombination(KeyCode.O,
                     KeyCombination.SHORTCUT_DOWN), this::openRepository);
