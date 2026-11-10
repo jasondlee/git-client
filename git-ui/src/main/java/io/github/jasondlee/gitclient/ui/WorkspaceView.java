@@ -34,6 +34,11 @@ public final class WorkspaceView extends BorderPane {
     private final TabPane diffTabs = new TabPane();
     private long diffGeneration;
     private final Label message = new Label("Choose Open Repository to begin.");
+    private final ProgressIndicator activity = new ProgressIndicator();
+    private final SimpleBooleanProperty loading = new SimpleBooleanProperty(false);
+    private TextField historySearchField;
+    private TabPane historyTabsControl;
+    private Tab graphHistoryTab;
     private final TextArea commitMessage = new TextArea();
     private final Button commitButton = new Button("Commit Staged");
     private final CheckBox amend = new CheckBox("Amend last commit");
@@ -51,6 +56,10 @@ public final class WorkspaceView extends BorderPane {
         initialize.setOnAction(e -> initializeRepository());
         clone.setOnAction(e -> cloneRepository());
         Button refresh = new Button("Refresh");
+        Button settings = new Button("Preferences");
+        settings.setOnAction(event -> showPreferences());
+        Button shortcuts = new Button("Shortcuts");
+        shortcuts.setOnAction(event -> showShortcuts());
         open.setOnAction(e -> openRepository());
         refresh.setOnAction(e -> refresh());
         Button clean = new Button("Clean Untracked");
@@ -638,8 +647,22 @@ public final class WorkspaceView extends BorderPane {
                 new Separator(), historyMenu, operationsMenu, advancedMenu,
                 new Separator(), tagSelector, stashSelector,
                 new Separator(), remoteSelector, remoteMenu, fetch, pull, push,
-                new Separator(), branch, location);
+                new Separator(), settings, shortcuts, branch, location);
         setTop(toolbar);
+        activity.setPrefSize(18, 18);
+        activity.setMaxSize(18, 18);
+        activity.visibleProperty().bind(loading);
+        activity.managedProperty().bind(loading);
+        toolbar.getItems().add(activity);
+        location.setAccessibleText("Repository location");
+        branch.setAccessibleText("Current branch");
+        operationState.setAccessibleText("Active Git operation");
+        message.setAccessibleText("Git operation status");
+        status.setAccessibleText("Changed files");
+        history.setAccessibleText("Recent commits");
+        diffPreview.setAccessibleText("Diff and commit details");
+        commitMessage.setAccessibleText("Commit message editor");
+        refresh.disableProperty().bind(loading);
         sceneProperty().addListener((obs, oldScene, scene) -> {
             if (scene == null) return;
             scene.getAccelerators().put(new KeyCodeCombination(KeyCode.O,
@@ -648,6 +671,18 @@ public final class WorkspaceView extends BorderPane {
                     KeyCombination.SHORTCUT_DOWN), this::refresh);
             scene.getAccelerators().put(new KeyCodeCombination(KeyCode.ENTER,
                     KeyCombination.SHORTCUT_DOWN), this::commit);
+            scene.getAccelerators().put(new KeyCodeCombination(KeyCode.F,
+                    KeyCombination.SHORTCUT_DOWN), this::focusHistorySearch);
+            scene.getAccelerators().put(new KeyCodeCombination(KeyCode.G,
+                    KeyCombination.SHORTCUT_DOWN), this::openGraphTab);
+            scene.getAccelerators().put(new KeyCodeCombination(KeyCode.DIGIT1,
+                    KeyCombination.SHORTCUT_DOWN), () -> diffTabs.getSelectionModel().select(0));
+            scene.getAccelerators().put(new KeyCodeCombination(KeyCode.DIGIT2,
+                    KeyCombination.SHORTCUT_DOWN), () -> diffTabs.getSelectionModel().select(1));
+            scene.getAccelerators().put(new KeyCodeCombination(KeyCode.DIGIT3,
+                    KeyCombination.SHORTCUT_DOWN), () -> diffTabs.getSelectionModel().select(2));
+            scene.getAccelerators().put(new KeyCodeCombination(KeyCode.SLASH,
+                    KeyCombination.SHORTCUT_DOWN), this::showShortcuts);
         });
         TableColumn<ChangedFile,String> path = new TableColumn<>("File");
         path.setCellValueFactory(c -> new ReadOnlyStringWrapper(c.getValue().path()));
@@ -711,6 +746,7 @@ public final class WorkspaceView extends BorderPane {
             }
         });
         TextField historySearch = new TextField();
+        historySearchField = historySearch;
         historySearch.setPromptText("Filter recent commits by SHA, subject, or author");
         historySearch.textProperty().addListener((observable, oldValue, query) -> {
             String needle = query.strip().toLowerCase(java.util.Locale.ROOT);
@@ -726,6 +762,8 @@ public final class WorkspaceView extends BorderPane {
         recentTab.setClosable(false);
         graphTab.setClosable(false);
         TabPane historyTabs = new TabPane(recentTab, graphTab);
+        historyTabsControl = historyTabs;
+        graphHistoryTab = graphTab;
         historyTabs.getSelectionModel().selectedItemProperty().addListener(
                 (observable, previous, selected) -> {
                     if (selected == graphTab && repository != null) loadCommitGraph(repository);
@@ -734,7 +772,7 @@ public final class WorkspaceView extends BorderPane {
                 historyTabs);
         panes.setDividerPositions(0.5);
         diffPreview.setEditable(false);
-        diffPreview.setWrapText(false);
+        diffPreview.setWrapText(preferences.getBoolean("diff.wrap", false));
         diffPreview.setStyle("-fx-font-family: monospace;");
         Tab unstagedTab = new Tab("Unstaged");
         Tab stagedTab = new Tab("Staged");
@@ -1688,16 +1726,83 @@ public final class WorkspaceView extends BorderPane {
         if (chosen == null) return;
         selectRepository(chosen.toPath());
     }
+    private void focusHistorySearch() {
+        if (historyTabsControl == null) return;
+        historyTabsControl.getSelectionModel().select(0);
+        if (historySearchField != null) historySearchField.requestFocus();
+    }
+
+    private void openGraphTab() {
+        if (historyTabsControl != null && graphHistoryTab != null) {
+            historyTabsControl.getSelectionModel().select(graphHistoryTab);
+            commitGraph.focusSearch();
+        }
+    }
+
+    private void showShortcuts() {
+        Alert dialog = new Alert(Alert.AlertType.INFORMATION);
+        dialog.setTitle("Keyboard Shortcuts");
+        dialog.setHeaderText("Workspace keyboard navigation");
+        dialog.setContentText("""
+                Shortcut+O  Open repository
+                Shortcut+R  Refresh repository
+                Shortcut+Enter  Commit staged changes
+                Shortcut+F  Search recent commits
+                Shortcut+G  Open and search branch graph
+                Shortcut+1  Unstaged changes
+                Shortcut+2  Staged changes
+                Shortcut+3  Commit details
+                Shortcut+/  Show keyboard shortcuts
+
+                Shortcut is Command on macOS and Control on Windows/Linux.
+                Use Tab and Shift+Tab to navigate controls.
+                """);
+        dialog.showAndWait();
+    }
+
+    private void showPreferences() {
+        Dialog<ButtonType> dialog = new Dialog<>();
+        dialog.setTitle("Preferences");
+        dialog.setHeaderText("Workspace settings");
+        Spinner<Integer> historyLimit = new Spinner<>(25, 1000,
+                preferences.getInt("history.limit", 100), 25);
+        historyLimit.setEditable(true);
+        historyLimit.setAccessibleText("Number of recent commits to load");
+        CheckBox wrapDiff = new CheckBox("Wrap diff and commit detail text");
+        wrapDiff.setSelected(preferences.getBoolean("diff.wrap", false));
+        CheckBox confirmActions = new CheckBox("Confirm potentially destructive Git operations");
+        confirmActions.setSelected(true);
+        confirmActions.setDisable(true);
+        confirmActions.setAccessibleText("Safety confirmations are always enabled");
+        VBox content = new VBox(12,
+                new Label("Recent commits to load"), historyLimit, wrapDiff, confirmActions);
+        content.setPadding(new Insets(12));
+        dialog.getDialogPane().setContent(content);
+        dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+        dialog.showAndWait().filter(button -> button == ButtonType.OK).ifPresent(button -> {
+            try {
+                int limit = historyLimit.getValue();
+                preferences.putInt("history.limit", limit);
+                preferences.putBoolean("diff.wrap", wrapDiff.isSelected());
+                diffPreview.setWrapText(wrapDiff.isSelected());
+                refresh();
+            } catch (IllegalArgumentException ex) {
+                message.setText("Invalid preferences: " + ex.getMessage());
+            }
+        });
+    }
+
     private void refresh() {
         Path current = repository;
         if (current == null) return;
         long generation = ++refreshGeneration;
         message.setText("Loading...");
+        loading.set(true);
         Thread.startVirtualThread(() -> {
             try {
                 Path root = repositories.findRepository(current);
                 RepositoryStatus snapshot = repositories.status(root);
-                var commits = repositories.history(root, 100);
+                var commits = repositories.history(root, preferences.getInt("history.limit", 100));
                 var branches = repositories.branches(root);
                 var tags = repositories.tags(root);
                 var remotes = repositories.remotes(root);
@@ -1705,6 +1810,7 @@ public final class WorkspaceView extends BorderPane {
                 var operation = repositories.operationState(root);
                 Platform.runLater(() -> {
                     if (generation != refreshGeneration) return;
+                    loading.set(false);
                     repository = root;
                     rememberRepository(root);
                     location.setText(root.toString());
@@ -1732,7 +1838,10 @@ public final class WorkspaceView extends BorderPane {
                     message.setText(snapshot.files().size() + " changed files · " + commits.size() + " commits");
                 });
             } catch (Exception ex) {
-                Platform.runLater(() -> { if (generation == refreshGeneration) message.setText("Error: " + ex.getMessage()); });
+                Platform.runLater(() -> { if (generation == refreshGeneration) {
+                    loading.set(false);
+                    message.setText("Error: " + ex.getMessage());
+                } });
             }
         });
     }
