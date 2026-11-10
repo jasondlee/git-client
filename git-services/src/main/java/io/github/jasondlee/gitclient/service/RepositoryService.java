@@ -856,8 +856,8 @@ public final class RepositoryService {
         Path messages = gitDirectory(root).resolve("git-client-rebase-messages.map");
         String command = java.nio.file.Files.isRegularFile(editor)
                 && java.nio.file.Files.isRegularFile(messages)
-                ? "java \\"" + editor.toString().replace('\\', '/')
-                        + "\\" message \\"" + messages.toString().replace('\\', '/') + "\\""
+                ? "java \"" + editor.toString().replace('\\', '/')
+                        + "\" message \"" + messages.toString().replace('\\', '/') + "\""
                 : "true";
         try {
             git.run(root, "-c", "core.editor=" + command, "rebase", operation);
