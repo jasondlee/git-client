@@ -307,6 +307,28 @@ public final class WorkspaceView extends BorderPane {
             showTextReport("HEAD vs " + target,
                     () -> repositories.compare(current, "HEAD", target));
         });
+        Button compareRefs = new Button("Compare Two References");
+        compareRefs.setOnAction(e -> {
+            if (repository == null) return;
+            TextInputDialog leftDialog = new TextInputDialog("HEAD");
+            leftDialog.setTitle("Compare References");
+            leftDialog.setHeaderText("Choose the starting branch, tag or commit");
+            leftDialog.setContentText("From:");
+            leftDialog.showAndWait().map(String::strip).filter(value -> !value.isEmpty())
+                    .ifPresent(left -> {
+                        TextInputDialog rightDialog = new TextInputDialog(
+                                branchSelector.getValue() == null ? "HEAD~1" : branchSelector.getValue());
+                        rightDialog.setTitle("Compare References");
+                        rightDialog.setHeaderText("Choose the ending branch, tag or commit");
+                        rightDialog.setContentText("To:");
+                        rightDialog.showAndWait().map(String::strip).filter(value -> !value.isEmpty())
+                                .ifPresent(right -> {
+                                    Path current = repository;
+                                    showTextReport(left + " vs " + right,
+                                            () -> repositories.compare(current, left, right));
+                                });
+                    });
+        });
         Button startBisect = new Button("Start Bisect");
         Button bisectGood = new Button("Bisect Good");
         Button bisectBad = new Button("Bisect Bad");
@@ -683,7 +705,7 @@ public final class WorkspaceView extends BorderPane {
         MenuButton branchesMenu = actionsMenu("Branches", createBranch, renameBranch,
                 remoteBranches, trackingBranch, switchBranch,
                 mergeBranch, abortMerge, deleteBranch, rebase, autosquash, interactiveRebase);
-        MenuButton historyMenu = actionsMenu("History", cherryPick, revert, fixup, findFiles, compare,
+        MenuButton historyMenu = actionsMenu("History", cherryPick, revert, fixup, findFiles, compare, compareRefs,
                 fileHistory, searchHistory, startBisect, bisectGood, bisectBad,
                 resetBisect, graph, reflog,
                 blame, reset);
