@@ -22,6 +22,24 @@ class RepositoryServiceTest {
             throw new java.io.UncheckedIOException(ex);
         }
     }
+    @Test void fileHistoryFollowsRenames() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        Files.writeString(directory.resolve("original.txt"), "original content\n");
+        git("add", ".");
+        git("commit", "-m", "create original");
+        git("mv", "original.txt", "renamed.txt");
+        git("commit", "-m", "rename original");
+        var service = new RepositoryService();
+        var history = service.fileHistory(directory, "renamed.txt", 10);
+        assertEquals(2, history.size(), history.toString());
+        assertTrue(history.stream().anyMatch(line -> line.contains("create original")));
+        assertTrue(history.stream().anyMatch(line -> line.contains("rename original")));
+        assertEquals(1, service.fileHistory(directory, "renamed.txt", 1).size());
+        assertTrue(service.fileHistory(directory, "renamed.txt", 0).isEmpty());
+    }
+
     @Test void commitGraphIncludesFullHashesAndMergeTopology() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
