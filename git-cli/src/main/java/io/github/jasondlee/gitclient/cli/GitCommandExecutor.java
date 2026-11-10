@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.concurrent.*;
 public final class GitCommandExecutor {
     private static final Duration TIMEOUT = Duration.ofSeconds(45);
+    private static final Duration REBASE_TIMEOUT = Duration.ofMinutes(5);
     public byte[] run(Path directory, String... args) {
         List<String> command = new ArrayList<>();
         command.add("git"); command.add("--no-pager"); command.addAll(List.of(args));
@@ -20,7 +21,8 @@ public final class GitCommandExecutor {
         try (ExecutorService io = Executors.newVirtualThreadPerTaskExecutor()) {
             Future<byte[]> stdout = io.submit(() -> process.getInputStream().readAllBytes());
             Future<byte[]> stderr = io.submit(() -> process.getErrorStream().readAllBytes());
-            if (!process.waitFor(TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)) {
+            Duration timeout = List.of(args).contains("rebase") ? REBASE_TIMEOUT : TIMEOUT;
+            if (!process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
                 process.destroyForcibly();
                 throw new GitException("Git command timed out");
             }
