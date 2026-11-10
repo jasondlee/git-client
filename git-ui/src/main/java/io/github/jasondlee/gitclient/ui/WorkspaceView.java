@@ -25,6 +25,10 @@ public final class WorkspaceView extends BorderPane {
     private final ComboBox<String> stashSelector = new ComboBox<>();
     private final TableView<ChangedFile> status = new TableView<>();
     private final ListView<CommitInfo> history = new ListView<>();
+    private final javafx.collections.ObservableList<CommitInfo> historySource =
+            javafx.collections.FXCollections.observableArrayList();
+    private final javafx.collections.transformation.FilteredList<CommitInfo> filteredHistory =
+            new javafx.collections.transformation.FilteredList<>(historySource);
     private final CommitGraphView commitGraph = createCommitGraphView();
     private final TextArea diffPreview = new TextArea();
     private final TabPane diffTabs = new TabPane();
@@ -655,6 +659,7 @@ public final class WorkspaceView extends BorderPane {
         status.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
         status.getSelectionModel().selectedItemProperty().addListener((observable, oldFile, newFile) -> loadDiff());
         status.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
+        history.setItems(filteredHistory);
         history.setCellFactory(v -> new ListCell<>() {
             @Override protected void updateItem(CommitInfo item, boolean empty) {
                 super.updateItem(item, empty);
@@ -703,7 +708,18 @@ public final class WorkspaceView extends BorderPane {
                 setContextMenu(menu);
             }
         });
-        Tab recentTab = new Tab("Recent commits", history);
+        TextField historySearch = new TextField();
+        historySearch.setPromptText("Filter recent commits by SHA, subject, or author");
+        historySearch.textProperty().addListener((observable, oldValue, query) -> {
+            String needle = query.strip().toLowerCase(java.util.Locale.ROOT);
+            filteredHistory.setPredicate(commit -> needle.isEmpty()
+                    || commit.id().toLowerCase(java.util.Locale.ROOT).contains(needle)
+                    || commit.subject().toLowerCase(java.util.Locale.ROOT).contains(needle)
+                    || commit.author().toLowerCase(java.util.Locale.ROOT).contains(needle));
+        });
+        VBox recentHistory = new VBox(6, historySearch, history);
+        VBox.setVgrow(history, Priority.ALWAYS);
+        Tab recentTab = new Tab("Recent commits", recentHistory);
         Tab graphTab = new Tab("Branch graph", commitGraph);
         recentTab.setClosable(false);
         graphTab.setClosable(false);
@@ -1693,7 +1709,14 @@ public final class WorkspaceView extends BorderPane {
                     if (remotes.contains(selectedRemote)) remoteSelector.setValue(selectedRemote);
                     else if (!remotes.isEmpty()) remoteSelector.setValue(remotes.getFirst());
                     status.getItems().setAll(snapshot.files());
-                    history.getItems().setAll(commits);
+                    String selectedCommit = history.getSelectionModel().getSelectedItem() == null
+                            ? null : history.getSelectionModel().getSelectedItem().id();
+                    historySource.setAll(commits);
+                    if (selectedCommit != null) {
+                        historySource.stream().filter(commit -> commit.id().equals(selectedCommit))
+                                .findFirst().ifPresent(commit ->
+                                        history.getSelectionModel().select(commit));
+                    }
                     loadCommitGraph(root);
                     loadDiff();
                     message.setText(snapshot.files().size() + " changed files · " + commits.size() + " commits");
