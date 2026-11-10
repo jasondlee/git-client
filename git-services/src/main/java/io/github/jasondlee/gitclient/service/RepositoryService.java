@@ -467,6 +467,53 @@ public final class RepositoryService {
         });
         return present ? conflictVersion(root, path, stage) : "";
     }
+    /** True when an available unmerged version contains a NUL byte (binary content). */
+    public boolean binaryConflict(Path directory, String path) {
+        Path root = findRepository(directory);
+        validateRepositoryPath(root, path);
+        if (!conflictedFiles(root).contains(path)) {
+            throw new IllegalArgumentException("File is not currently conflicted: " + path);
+        }
+        String stages = new String(git.run(root, "ls-files", "--unmerged", "--", path),
+                StandardCharsets.UTF_8);
+        for (int stage = 1; stage <= 3; stage++) {
+            final int candidate = stage;
+            boolean present = stages.lines().anyMatch(line -> {
+                int tab = line.indexOf('\t');
+                return tab >= 0 && line.substring(0, tab).endsWith(" " + candidate);
+            });
+            if (present) {
+                byte[] contents = git.run(root, "show", ":" + stage + ":" + path);
+                for (byte value : contents) {
+                    if (value == 0) return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /** Accept an unmodified binary conflict side without decoding or rewriting its bytes. */
+    public void resolveConflictUsingStage(Path directory, String path, int stage) {
+        if (stage != 2 && stage != 3) {
+            throw new IllegalArgumentException("Choose ours (2) or theirs (3)");
+        }
+        Path root = findRepository(directory);
+        validateRepositoryPath(root, path);
+        if (!conflictedFiles(root).contains(path)) {
+            throw new IllegalArgumentException("File is not currently conflicted: " + path);
+        }
+        String stages = new String(git.run(root, "ls-files", "--unmerged", "--", path),
+                StandardCharsets.UTF_8);
+        boolean present = stages.lines().anyMatch(line -> {
+            int tab = line.indexOf('\t');
+            return tab >= 0 && line.substring(0, tab).endsWith(" " + stage);
+        });
+        if (!present) {
+            throw new IllegalArgumentException("Selected conflict side does not exist");
+        }
+        git.run(root, "checkout", stage == 2 ? "--ours" : "--theirs", "--", path);
+        git.run(root, "add", "--", path);
+    }
     public void resolveConflict(Path directory, String path, String contents) {
         Path root = findRepository(directory);
         validateRepositoryPath(root, path);
