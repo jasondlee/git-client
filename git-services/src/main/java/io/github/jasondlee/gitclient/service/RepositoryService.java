@@ -776,12 +776,12 @@ public final class RepositoryService {
                         .append('\\n');
             }
             java.nio.file.Files.writeString(messageMap, mapping.toString());
-            String javaEditor = "java \\"" + editor.toString().replace('\\\\', '/')
-                    + "\\"";
-            String sequenceCommand = javaEditor + " sequence \\""
-                    + instructions.toString().replace('\\\\', '/') + "\\"";
-            String messageCommand = javaEditor + " message \\""
-                    + messageMap.toString().replace('\\\\', '/') + "\\"";
+            String javaEditor = "java \"" + editor.toString().replace('\\', '/')
+                    + "\"";
+            String sequenceCommand = javaEditor + " sequence \""
+                    + instructions.toString().replace('\\', '/') + "\"";
+            String messageCommand = javaEditor + " message \""
+                    + messageMap.toString().replace('\\', '/') + "\"";
             git.run(root, "-c", "sequence.editor=" + sequenceCommand,
                     "-c", "core.editor=" + messageCommand, "rebase", "-i", baseBranch);
         } catch (java.io.IOException ex) {
