@@ -42,6 +42,15 @@ public final class GitClientApp extends Application {
         WorkspaceView workspace = new WorkspaceView();
         Tab tab = new Tab(path == null ? "New Repository" : path.getFileName().toString(),
                 workspace);
+        workspace.repositoryLocationProperty().addListener((observable, oldLocation, newLocation) -> {
+            if (newLocation == null || newLocation.equals("No repository open")) {
+                tab.setText("New Repository");
+            } else {
+                Path location = Path.of(newLocation);
+                tab.setText(location.getFileName() == null ? newLocation : location.getFileName().toString());
+                tab.setTooltip(new javafx.scene.control.Tooltip(newLocation));
+            }
+        });
         tab.setClosable(true);
         repositories.getTabs().add(tab);
         repositories.getSelectionModel().select(tab);
