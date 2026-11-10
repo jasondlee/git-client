@@ -25,6 +25,25 @@ class GitCommandExecutorTest {
         assertTrue(failure.getMessage().contains("Git exited with"), failure.getMessage());
     }
 
+    @Test void interruptingGitCommandStopsTheProcess() throws Exception {
+        var git = new GitCommandExecutor();
+        java.util.concurrent.atomic.AtomicReference<Throwable> failure =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        Thread worker = Thread.ofVirtual().start(() -> {
+            try {
+                // Git waits for stdin until EOF; interrupting must terminate that wait.
+                git.run(directory, "hash-object", "--stdin");
+            } catch (Throwable ex) {
+                failure.set(ex);
+            }
+        });
+        Thread.sleep(150);
+        worker.interrupt();
+        worker.join(5000);
+        assertFalse(worker.isAlive(), "Git process did not stop after interruption");
+        assertInstanceOf(GitException.class, failure.get());
+    }
+
     @Test void rejectsMissingGitWorkingDirectory() {
         var git = new GitCommandExecutor();
         assertThrows(GitException.class,
