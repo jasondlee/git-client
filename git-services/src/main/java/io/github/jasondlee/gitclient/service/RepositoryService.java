@@ -480,6 +480,20 @@ public final class RepositoryService {
     public void abortRevert(Path directory) {
         git.run(findRepository(directory), "revert", "--abort");
     }
+    public String createFixupCommit(Path directory, String targetCommitId) {
+        validateCommitId(targetCommitId);
+        Path root = findRepository(directory);
+        git.run(root, "commit", "--fixup=" + targetCommitId);
+        return new String(git.run(root, "rev-parse", "HEAD"),
+                StandardCharsets.UTF_8).strip();
+    }
+    public void rebaseAutosquash(Path directory, String baseBranch) {
+        validateBranchName(baseBranch);
+        if (!branches(directory).contains(baseBranch)) {
+            throw new IllegalArgumentException("Unknown local branch: " + baseBranch);
+        }
+        git.run(findRepository(directory), "rebase", "--autosquash", baseBranch);
+    }
     public void rebase(Path directory, String branchName) {
         validateBranchName(branchName);
         if (!branches(directory).contains(branchName)) {
