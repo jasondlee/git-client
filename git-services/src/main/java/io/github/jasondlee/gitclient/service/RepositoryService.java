@@ -449,6 +449,33 @@ public final class RepositoryService {
         }
         git.run(findRepository(directory), "config", "--local", key, value);
     }
+    public List<String> lfsTrackedFiles(Path directory) {
+        String output = new String(git.run(findRepository(directory),
+                "lfs", "ls-files"), StandardCharsets.UTF_8);
+        return output.lines().toList();
+    }
+    public void trackLfsPattern(Path directory, String pattern) {
+        if (pattern == null || pattern.isBlank() || pattern.startsWith("-")
+                || pattern.contains("\n") || pattern.contains("\r")) {
+            throw new IllegalArgumentException("Invalid LFS tracking pattern");
+        }
+        git.run(findRepository(directory), "lfs", "track", "--", pattern);
+    }
+    public List<String> installedHooks(Path directory) {
+        Path root = findRepository(directory);
+        String hooksPath = new String(git.run(root, "rev-parse", "--git-path", "hooks"),
+                StandardCharsets.UTF_8).strip();
+        Path hooks = Path.of(hooksPath);
+        if (!hooks.isAbsolute()) hooks = root.resolve(hooks);
+        if (!java.nio.file.Files.isDirectory(hooks)) return List.of();
+        try (var files = java.nio.file.Files.list(hooks)) {
+            return files.filter(java.nio.file.Files::isRegularFile)
+                    .filter(path -> !path.getFileName().toString().endsWith(".sample"))
+                    .map(path -> path.getFileName().toString()).sorted().toList();
+        } catch (java.io.IOException ex) {
+            throw new java.io.UncheckedIOException("Unable to list Git hooks", ex);
+        }
+    }
     public List<String> submodules(Path directory) {
         String output = new String(git.run(findRepository(directory), "submodule",
                 "status"), StandardCharsets.UTF_8);
