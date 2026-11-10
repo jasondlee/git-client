@@ -266,11 +266,8 @@ public final class WorkspaceView extends BorderPane {
                             : status.getSelectionModel().getSelectedItem().path());
             dialog.setTitle("File History");
             dialog.setContentText("Repository-relative file path:");
-            dialog.showAndWait().ifPresent(path -> {
-                Path current = repository;
-                showTextReport("History: " + path,
-                        () -> String.join("\n", repositories.fileHistory(current, path, 100)));
-            });
+            dialog.showAndWait().map(String::strip).filter(path -> !path.isEmpty())
+                    .ifPresent(path -> showFileHistory(repository, path));
         });
         searchHistory.setOnAction(e -> {
             if (repository == null) return;
@@ -872,6 +869,56 @@ public final class WorkspaceView extends BorderPane {
             default -> null;
         };
         if (action != null) confirmOperation((abort ? "Abort " : "Continue ") + state + "?", action);
+    }
+    private void showFileHistory(Path current, String path) {
+        message.setText("Loading file history: " + path + "...");
+        Thread.startVirtualThread(() -> {
+            try {
+                var entries = repositories.fileHistory(current, path, 200);
+                Platform.runLater(() -> {
+                    Dialog<Void> dialog = new Dialog<>();
+                    dialog.setTitle("File History: " + path);
+                    ListView<String> commits = new ListView<>();
+                    commits.getItems().setAll(entries);
+                    commits.setPrefWidth(380);
+                    commits.setAccessibleText("Commits affecting " + path);
+                    TextArea patch = new TextArea();
+                    patch.setEditable(false);
+                    patch.setWrapText(false);
+                    patch.setPromptText("Select a commit to view its file changes");
+                    patch.setAccessibleText("Selected commit file diff");
+                    commits.getSelectionModel().selectedItemProperty().addListener(
+                            (observable, previous, selected) -> {
+                                if (selected == null) return;
+                                String hash = selected.split(" ", 2)[0];
+                                patch.setText("Loading commit " + hash + "...");
+                                Thread.startVirtualThread(() -> {
+                                    try {
+                                        String diff = repositories.fileCommitPatch(current, hash, path);
+                                        Platform.runLater(() -> {
+                                            if (selected.equals(commits.getSelectionModel().getSelectedItem())) {
+                                                patch.setText(diff);
+                                                patch.positionCaret(0);
+                                            }
+                                        });
+                                    } catch (Exception ex) {
+                                        Platform.runLater(() -> patch.setText(
+                                                "Unable to load patch: " + ex.getMessage()));
+                                    }
+                                });
+                            });
+                    HBox content = new HBox(8, commits, patch);
+                    HBox.setHgrow(patch, javafx.scene.layout.Priority.ALWAYS);
+                    content.setPrefSize(1100, 650);
+                    dialog.getDialogPane().setContent(content);
+                    dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
+                    if (!entries.isEmpty()) commits.getSelectionModel().selectFirst();
+                    dialog.showAndWait();
+                });
+            } catch (Exception ex) {
+                Platform.runLater(() -> message.setText("File history: " + ex.getMessage()));
+            }
+        });
     }
     private void showTextReport(String title, java.util.function.Supplier<String> loader) {
         if (repository == null) return;
