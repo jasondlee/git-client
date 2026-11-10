@@ -72,6 +72,76 @@ class RepositoryServiceTest {
                 .contains("before reword"));
     }
 
+    @Test void interactiveRebaseRewordsFullMessage() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
+        Files.writeString(directory.resolve("base.txt"), "base\n");
+        git("add", ".");
+        git("commit", "-m", "base");
+        git("branch", "base");
+        Files.writeString(directory.resolve("change.txt"), "change\n");
+        git("add", ".");
+        git("commit", "-m", "old subject");
+        var service = new RepositoryService();
+        String original = service.interactiveRebasePlan(directory, "base").strip();
+        String hash = original.split(" ", 3)[1];
+        service.interactiveRebase(directory, "base",
+                original.replaceFirst("^pick ", "reword ") + "\n",
+                java.util.Map.of(hash, "New subject\n\nNew body with details"));
+        assertEquals("New subject", service.history(directory, 1).getFirst().subject());
+        assertTrue(service.showCommit(directory,
+                service.history(directory, 1).getFirst().id()).contains("New body with details"));
+    }
+
+    @Test void interactiveRebaseEditPausesAndCanContinue() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
+        Files.writeString(directory.resolve("base.txt"), "base\n");
+        git("add", ".");
+        git("commit", "-m", "base");
+        git("branch", "base");
+        Files.writeString(directory.resolve("change.txt"), "change\n");
+        git("add", ".");
+        git("commit", "-m", "change");
+        var service = new RepositoryService();
+        String plan = service.interactiveRebasePlan(directory, "base")
+                .replaceFirst("^pick ", "edit ");
+        assertTrue(service.validateInteractiveRebasePlan(directory, "base", plan)
+                .startsWith("edit "));
+        service.interactiveRebase(directory, "base", plan);
+        assertTrue(service.rebaseInProgress(directory));
+        assertTrue(service.rebaseProgress(directory).contains("Rebasing"));
+        service.continueRebase(directory);
+        assertFalse(service.rebaseInProgress(directory));
+        assertEquals("change", service.history(directory, 1).getFirst().subject());
+    }
+
+    @Test void interactiveRebaseRejectsNestedRebase() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
+        Files.writeString(directory.resolve("base.txt"), "base\n");
+        git("add", ".");
+        git("commit", "-m", "base");
+        git("branch", "base");
+        Files.writeString(directory.resolve("change.txt"), "change\n");
+        git("add", ".");
+        git("commit", "-m", "change");
+        var service = new RepositoryService();
+        String plan = service.interactiveRebasePlan(directory, "base")
+                .replaceFirst("^pick ", "edit ");
+        service.interactiveRebase(directory, "base", plan);
+        assertThrows(IllegalStateException.class,
+                () -> service.interactiveRebase(directory, "base", plan));
+        service.abortRebase(directory);
+        assertFalse(service.rebaseInProgress(directory));
+    }
+
     @Test void interactiveRebaseSquashesCommits() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
