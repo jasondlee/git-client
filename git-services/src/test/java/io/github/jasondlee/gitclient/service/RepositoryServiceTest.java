@@ -433,6 +433,35 @@ class RepositoryServiceTest {
         assertFalse(Files.exists(directory.resolve(".git/git-client-rebase-messages.map")));
     }
 
+    @Test void interactiveRebaseEditCanBeAbortedWithoutChangingHistory() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
+        Files.writeString(directory.resolve("base.txt"), "base\n");
+        git("add", ".");
+        git("commit", "-m", "base");
+        git("branch", "base");
+        Files.writeString(directory.resolve("feature.txt"), "feature\n");
+        git("add", ".");
+        git("commit", "-m", "feature");
+        var service = new RepositoryService();
+        String originalHead = service.history(directory, 1).getFirst().id();
+        String plan = service.interactiveRebasePlan(directory, "base")
+                .replaceFirst("^pick ", "edit ");
+        service.interactiveRebase(directory, "base", plan);
+        assertTrue(service.rebaseInProgress(directory));
+        assertTrue(service.rebaseProgress(directory).contains("Rebasing"));
+        service.abortRebase(directory);
+        assertFalse(service.rebaseInProgress(directory));
+        assertEquals(originalHead, service.history(directory, 1).getFirst().id());
+        assertEquals("master", service.status(directory).branch());
+        assertEquals("feature\n", Files.readString(directory.resolve("feature.txt")));
+        assertFalse(Files.exists(directory.resolve(".git/git-client-rebase-editor.java")));
+        assertFalse(Files.exists(directory.resolve(".git/git-client-rebase-plan.todo")));
+        assertFalse(Files.exists(directory.resolve(".git/git-client-rebase-messages.map")));
+    }
+
     @Test void interactiveRebaseSquashCombinesMessagesAndChanges() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
