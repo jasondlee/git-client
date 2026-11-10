@@ -1044,6 +1044,24 @@ public final class WorkspaceView extends BorderPane {
         });
     }
 
+    private java.util.Optional<String> promptRewordMessage(String hash, String initial) {
+        Dialog<String> messageDialog = new Dialog<>();
+        messageDialog.setTitle("Reword Commit");
+        messageDialog.setHeaderText("New commit message for " + hash.substring(0, 8));
+        TextArea messageEditor = new TextArea(initial);
+        messageEditor.setPromptText("Subject, optionally followed by a blank line and body");
+        messageEditor.setPrefRowCount(7);
+        messageEditor.setPrefColumnCount(65);
+        messageEditor.setWrapText(true);
+        messageDialog.getDialogPane().setContent(messageEditor);
+        messageDialog.getDialogPane().getButtonTypes().addAll(
+                ButtonType.OK, ButtonType.CANCEL);
+        messageDialog.setResultConverter(button ->
+                button == ButtonType.OK && !messageEditor.getText().isBlank()
+                        ? messageEditor.getText() : null);
+        return messageDialog.showAndWait();
+    }
+
     private void showInteractiveRebase() {
         if (repository == null || branchSelector.getValue() == null) {
             message.setText("Choose a base branch before interactive rebase.");
@@ -1132,22 +1150,8 @@ public final class WorkspaceView extends BorderPane {
                         String[] fields = line.split(" ", 3);
                         if (fields[0].equals(action.getValue())) return;
                         if (action.getValue().equals("reword")) {
-                            Dialog<String> messageDialog = new Dialog<>();
-                            messageDialog.setTitle("Reword Commit");
-                            messageDialog.setHeaderText(
-                                    "New commit message for " + fields[1].substring(0, 8));
-                            TextArea messageEditor = new TextArea(
-                                    fields.length > 2 ? fields[2] : "");
-                            messageEditor.setPromptText("Subject, optionally followed by a blank line and body");
-                            messageEditor.setPrefRowCount(7);
-                            messageEditor.setPrefColumnCount(65);
-                            messageEditor.setWrapText(true);
-                            messageDialog.getDialogPane().setContent(messageEditor);
-                            messageDialog.getDialogPane().getButtonTypes().addAll(
-                                    ButtonType.OK, ButtonType.CANCEL);
-                            messageDialog.setResultConverter(button ->
-                                    button == ButtonType.OK ? messageEditor.getText() : null);
-                            java.util.Optional<String> replacement = messageDialog.showAndWait();
+                            java.util.Optional<String> replacement = promptRewordMessage(
+                                    fields[1], fields.length > 2 ? fields[2] : "");
                             if (replacement.isEmpty() || replacement.get().isBlank()) {
                                 action.setValue(fields[0]);
                                 return;
@@ -1165,6 +1169,24 @@ public final class WorkspaceView extends BorderPane {
                                     action.setValue(selected.substring(0, selected.indexOf(' ')));
                                 }
                             });
+                    Button editMessage = new Button("Edit Message");
+                    editMessage.setOnAction(event -> {
+                        int index = commitList.getSelectionModel().getSelectedIndex();
+                        if (index < 0) return;
+                        String[] fields = commits.get(index).split(" ", 3);
+                        if (!fields[0].equals("reword")) return;
+                        promptRewordMessage(fields[1], replacementMessages.getOrDefault(
+                                fields[1], fields.length > 2 ? fields[2] : ""))
+                                .ifPresent(value -> replacementMessages.put(fields[1], value.strip()));
+                    });
+                    editMessage.disableProperty().bind(
+                            commitList.getSelectionModel().selectedItemProperty().isNull()
+                                    .or(javafx.beans.binding.Bindings.createBooleanBinding(
+                                            () -> {
+                                                String selected = commitList.getSelectionModel()
+                                                        .getSelectedItem();
+                                                return selected == null || !selected.startsWith("reword ");
+                                            }, commitList.getSelectionModel().selectedItemProperty())));
                     Button up = new Button("Move Up");
                     Button down = new Button("Move Down");
                     up.setOnAction(event -> {
@@ -1186,7 +1208,7 @@ public final class WorkspaceView extends BorderPane {
                                     + "Edit pauses the rebase so you can amend the commit. Squash/fixup must follow a kept commit. "
                                     + "This rewrites local history.");
                     instructions.setWrapText(true);
-                    HBox controls = new HBox(8, new Label("Action:"), action, up, down);
+                    HBox controls = new HBox(8, new Label("Action:"), action, editMessage, up, down);
                     VBox content = new VBox(8, instructions, commitList, controls);
                     dialog.getDialogPane().setContent(content);
                     dialog.getDialogPane().getButtonTypes().addAll(
