@@ -340,6 +340,13 @@ public final class WorkspaceView extends BorderPane {
         Button worktrees = new Button("Worktrees");
         Button addWorktree = new Button("Add Worktree");
         Button removeWorktree = new Button("Remove Worktree");
+        Button pruneWorktrees = new Button("Prune Stale Worktrees");
+        pruneWorktrees.setOnAction(e -> {
+            if (repository == null) return;
+            Path current = repository;
+            confirmOperation("Prune stale worktree administrative records?",
+                    () -> repositories.pruneWorktrees(current));
+        });
         addWorktree.setOnAction(e -> {
             if (repository == null || branchSelector.getValue() == null) return;
             String selectedBranch = branchSelector.getValue();
@@ -446,6 +453,19 @@ public final class WorkspaceView extends BorderPane {
         Button hooks = new Button("Installed Hooks");
         Button lfsFiles = new Button("LFS Files");
         Button lfsTrack = new Button("Track with LFS");
+        Button lfsUntrack = new Button("Untrack LFS Pattern");
+        lfsUntrack.setOnAction(e -> {
+            if (repository == null) return;
+            TextInputDialog dialog = new TextInputDialog("*.psd");
+            dialog.setTitle("Untrack Git LFS Pattern");
+            dialog.setContentText("Existing LFS pattern:");
+            dialog.showAndWait().map(String::strip).filter(pattern -> !pattern.isEmpty())
+                    .ifPresent(pattern -> {
+                        Path current = repository;
+                        confirmOperation("Stop tracking '" + pattern + "' with LFS? This updates .gitattributes.",
+                                () -> repositories.untrackLfsPattern(current, pattern));
+                    });
+        });
         hooks.setOnAction(e -> {
             if (repository == null) return;
             Path current = repository;
@@ -473,6 +493,13 @@ public final class WorkspaceView extends BorderPane {
         });
         Button submodules = new Button("Submodules");
         Button updateSubmodules = new Button("Update Submodules");
+        Button syncSubmodules = new Button("Sync Submodule URLs");
+        syncSubmodules.setOnAction(e -> {
+            if (repository == null) return;
+            Path current = repository;
+            confirmOperation("Synchronize submodule URLs from .gitmodules?",
+                    () -> repositories.syncSubmodules(current));
+        });
         reset.setOnAction(e -> {
             CommitInfo selected = history.getSelectionModel().getSelectedItem();
             if (repository == null || selected == null) return;
@@ -649,9 +676,9 @@ public final class WorkspaceView extends BorderPane {
         MenuButton remoteMenu = actionsMenu("Remotes", addRemote, renameRemote,
                 removeRemote, remoteDetails);
         MenuButton advancedMenu = actionsMenu("Advanced", exportPatch, applyPatch,
-                configView, configEdit, hooks, lfsFiles, lfsTrack,
-                worktrees, addWorktree, removeWorktree, submodules,
-                updateSubmodules, createTag, annotatedTag, deleteTag, stash, applyStash, dropStash);
+                configView, configEdit, hooks, lfsFiles, lfsTrack, lfsUntrack,
+                worktrees, addWorktree, removeWorktree, pruneWorktrees, submodules,
+                updateSubmodules, syncSubmodules, createTag, annotatedTag, deleteTag, stash, applyStash, dropStash);
         ToolBar toolbar = new ToolBar(open, recentRepositories, initialize, clone, refresh, stage, unstage, stageHunk, unstageHunk, stageLines, unstageLines,
                 discard, clean, ignore,
                 new Separator(), branchSelector, branchesMenu,
