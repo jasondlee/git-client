@@ -297,6 +297,39 @@ class RepositoryServiceTest {
         assertEquals("master\n", Files.readString(directory.resolve("shared.txt")));
     }
 
+    @Test void rewordAfterSkippingConflictKeepsEditorAvailable() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
+        Files.writeString(directory.resolve("shared.txt"), "base\n");
+        git("add", ".");
+        git("commit", "-m", "base");
+        git("branch", "feature");
+        Files.writeString(directory.resolve("shared.txt"), "master\n");
+        git("add", ".");
+        git("commit", "-m", "master change");
+        git("checkout", "feature");
+        Files.writeString(directory.resolve("shared.txt"), "feature\n");
+        git("add", ".");
+        git("commit", "-m", "feature change");
+        Files.writeString(directory.resolve("later.txt"), "later\n");
+        git("add", ".");
+        git("commit", "-m", "later commit");
+        var service = new RepositoryService();
+        var lines = service.interactiveRebasePlan(directory, "master").lines().toList();
+        String laterHash = lines.get(1).split(" ", 3)[1];
+        String plan = lines.get(0) + "\n"
+                + lines.get(1).replaceFirst("^pick ", "reword ") + "\n";
+        assertThrows(RuntimeException.class, () -> service.interactiveRebase(
+                directory, "master", plan, java.util.Map.of(laterHash, "later renamed")));
+        service.skipRebase(directory);
+        assertFalse(service.rebaseInProgress(directory));
+        assertEquals("later renamed", service.history(directory, 1).getFirst().subject());
+        assertFalse(Files.exists(directory.resolve(".git/git-client-rebase-editor.java")));
+        assertFalse(Files.exists(directory.resolve(".git/git-client-rebase-messages.map")));
+    }
+
     @Test void interactiveRebaseSquashesCommits() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
