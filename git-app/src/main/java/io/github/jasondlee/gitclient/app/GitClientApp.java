@@ -14,9 +14,13 @@ import javafx.scene.layout.BorderPane;
 import javafx.stage.Stage;
 
 import java.nio.file.Path;
+import java.nio.file.Files;
+import java.util.prefs.Preferences;
 
 public final class GitClientApp extends Application {
     private final TabPane repositories = new TabPane();
+    private final Preferences preferences = Preferences.userNodeForPackage(GitClientApp.class);
+    private static final String SESSION_KEY = "openRepositoryTabs";
 
     @Override public void start(Stage stage) {
         stage.setTitle("Git Client — Repository Explorer");
@@ -26,13 +30,14 @@ public final class GitClientApp extends Application {
         layout.setTop(new ToolBar(newTab));
         layout.setCenter(repositories);
         repositories.setTabClosingPolicy(TabPane.TabClosingPolicy.ALL_TABS);
-        if (getParameters().getRaw().isEmpty()) {
-            addRepositoryTab(null);
-        } else {
+        if (!getParameters().getRaw().isEmpty()) {
             for (String argument : getParameters().getRaw()) {
                 addRepositoryTab(Path.of(argument));
             }
+        } else {
+            restoreSession();
         }
+        if (repositories.getTabs().isEmpty()) addRepositoryTab(null);
         Scene scene = new Scene(layout, 1100, 700);
         scene.getAccelerators().put(
                 new KeyCodeCombination(KeyCode.T, KeyCombination.SHORTCUT_DOWN),
@@ -53,6 +58,39 @@ public final class GitClientApp extends Application {
                 () -> repositories.getSelectionModel().selectPrevious());
         stage.setScene(scene);
         stage.show();
+    }
+
+    private void restoreSession() {
+        String saved = preferences.get(SESSION_KEY, "");
+        for (String encoded : saved.split("\\n")) {
+            if (encoded.isBlank()) continue;
+            try {
+                Path path = Path.of(new String(java.util.Base64.getUrlDecoder().decode(encoded),
+                        java.nio.charset.StandardCharsets.UTF_8));
+                if (Files.isDirectory(path)) addRepositoryTab(path);
+            } catch (IllegalArgumentException ignored) {
+                // Skip a corrupt or obsolete saved path.
+            }
+        }
+    }
+
+    @Override public void stop() {
+        StringBuilder saved = new StringBuilder();
+        for (Tab tab : repositories.getTabs()) {
+            WorkspaceView workspace = (WorkspaceView) tab.getContent();
+            String location = workspace.repositoryLocationProperty().get();
+            if (location == null || location.equals("No repository open")) continue;
+            try {
+                Path path = Path.of(location);
+                if (!Files.isDirectory(path)) continue;
+                if (!saved.isEmpty()) saved.append('\n');
+                saved.append(java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(
+                        location.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+            } catch (IllegalArgumentException ignored) {
+                // Ignore invalid paths rather than preventing application shutdown.
+            }
+        }
+        preferences.put(SESSION_KEY, saved.toString());
     }
 
     private void addRepositoryTab(Path path) {
