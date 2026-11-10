@@ -361,6 +361,15 @@ public final class RepositoryService {
                 "--format=%h %ad %s", "--date=short", "--", path), StandardCharsets.UTF_8);
         return output.lines().toList();
     }
+    /** Show the changes made to a file by one commit, including its parent diff. */
+    public String fileCommitPatch(Path directory, String commitId, String path) {
+        validateCommitId(commitId);
+        Path root = findRepository(directory);
+        validateRepositoryPath(root, path);
+        return new String(git.run(root, "show", "--format=fuller", "--find-renames",
+                "--no-ext-diff", "--no-color", commitId, "--", path),
+                StandardCharsets.UTF_8);
+    }
     public List<String> searchCommits(Path directory, String query, int count) {
         if (query == null || query.isBlank() || count <= 0) return List.of();
         String output = new String(git.run(findRepository(directory), "log", "--all",
