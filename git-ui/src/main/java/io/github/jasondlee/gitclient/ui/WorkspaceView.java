@@ -515,6 +515,13 @@ public final class WorkspaceView extends BorderPane {
         Button hooks = new Button("Installed Hooks");
         Button lfsFiles = new Button("LFS Files");
         Button lfsTrack = new Button("Track with LFS");
+        Button lfsPull = new Button("Pull LFS Objects");
+        lfsPull.setOnAction(e -> {
+            if (repository == null) return;
+            Path current = repository;
+            confirmOperation("Download Git LFS objects for the current checkout?",
+                    () -> repositories.pullLfsObjects(current));
+        });
         Button lfsUntrack = new Button("Untrack LFS Pattern");
         lfsUntrack.setOnAction(e -> {
             if (repository == null) return;
@@ -759,7 +766,7 @@ public final class WorkspaceView extends BorderPane {
         MenuButton remoteMenu = actionsMenu("Remotes", addRemote, renameRemote,
                 removeRemote, remoteDetails);
         MenuButton advancedMenu = actionsMenu("Advanced", exportPatch, applyPatch,
-                configView, configEdit, hooks, lfsFiles, lfsTrack, lfsUntrack,
+                configView, configEdit, hooks, lfsFiles, lfsTrack, lfsUntrack, lfsPull,
                 worktrees, addWorktree, newBranchWorktree, removeWorktree, pruneWorktrees, submodules, addSubmodule,
                 updateSubmodules, syncSubmodules, createTag, annotatedTag, deleteTag, stash, applyStash, dropStash);
         ToolBar toolbar = new ToolBar(open, recentRepositories, initialize, clone, refresh, stage, unstage, stageHunk, unstageHunk, stageLines, unstageLines,
