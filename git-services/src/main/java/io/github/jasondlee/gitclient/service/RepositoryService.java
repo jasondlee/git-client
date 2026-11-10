@@ -508,6 +508,26 @@ public final class RepositoryService {
         });
         return present ? conflictVersion(root, path, stage) : "";
     }
+    public Set<Integer> conflictStages(Path directory, String path) {
+        Path root = findRepository(directory);
+        validateRepositoryPath(root, path);
+        if (!conflictedFiles(root).contains(path)) {
+            throw new IllegalArgumentException("File is not currently conflicted: " + path);
+        }
+        String output = new String(git.run(root, "ls-files", "--unmerged", "--", path),
+                StandardCharsets.UTF_8);
+        Set<Integer> stages = new HashSet<>();
+        for (String line : output.lines().toList()) {
+            int tab = line.indexOf('\t');
+            if (tab < 0) continue;
+            String header = line.substring(0, tab);
+            for (int stage = 1; stage <= 3; stage++) {
+                if (header.endsWith(" " + stage)) stages.add(stage);
+            }
+        }
+        return Set.copyOf(stages);
+    }
+
     /** True when an available unmerged version contains a NUL byte (binary content). */
     public boolean binaryConflict(Path directory, String path) {
         Path root = findRepository(directory);
