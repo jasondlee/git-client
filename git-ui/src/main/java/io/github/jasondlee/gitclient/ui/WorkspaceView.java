@@ -961,7 +961,8 @@ public final class WorkspaceView extends BorderPane {
                             ? "No unresolved files."
                             : conflicts.size() + " unresolved file(s). Select one to resolve.");
                     Label guidance = new Label(
-                            "Resolve and stage all conflicts before continuing. "
+                            "Resolve and stage conflicts before continuing. If paused at Edit, "
+                                    + "amend the commit using the Commit/Amend action, then Continue. "
                                     + "Skip discards the current commit; Abort restores the pre-rebase state.");
                     guidance.setWrapText(true);
                     dialog.getDialogPane().setContent(
