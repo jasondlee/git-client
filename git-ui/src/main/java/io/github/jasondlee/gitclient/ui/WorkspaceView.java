@@ -283,6 +283,21 @@ public final class WorkspaceView extends BorderPane {
                         () -> String.join("\n", repositories.searchCommits(current, query, 100)));
             });
         });
+        Button findFiles = new Button("Find Tracked Files");
+        findFiles.setOnAction(e -> {
+            if (repository == null) return;
+            TextInputDialog dialog = new TextInputDialog();
+            dialog.setTitle("Find Tracked Files");
+            dialog.setHeaderText("Search tracked filenames across the repository");
+            dialog.setContentText("Filename contains:");
+            dialog.showAndWait().map(String::strip).filter(query -> !query.isEmpty())
+                    .ifPresent(query -> {
+                        Path current = repository;
+                        showTextReport("Files matching: " + query,
+                                () -> String.join("\\n",
+                                        repositories.searchTrackedPaths(current, query, 500)));
+                    });
+        });
         Button compare = new Button("Compare Branch to HEAD");
         compare.setOnAction(e -> {
             if (repository == null || branchSelector.getValue() == null) return;
@@ -667,7 +682,7 @@ public final class WorkspaceView extends BorderPane {
         MenuButton branchesMenu = actionsMenu("Branches", createBranch, renameBranch,
                 remoteBranches, trackingBranch, switchBranch,
                 mergeBranch, abortMerge, deleteBranch, rebase, autosquash, interactiveRebase);
-        MenuButton historyMenu = actionsMenu("History", cherryPick, revert, fixup, compare,
+        MenuButton historyMenu = actionsMenu("History", cherryPick, revert, fixup, findFiles, compare,
                 fileHistory, searchHistory, startBisect, bisectGood, bisectBad,
                 resetBisect, graph, reflog,
                 blame, reset);
