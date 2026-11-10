@@ -22,6 +22,32 @@ class RepositoryServiceTest {
             throw new java.io.UncheckedIOException(ex);
         }
     }
+    @Test void resolvesBinaryConflictWithoutChangingSelectedBytes() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        byte[] base = {0, 1, 2};
+        byte[] master = {0, 3, 4};
+        byte[] feature = {0, 5, 6};
+        Files.write(directory.resolve("image.bin"), base);
+        git("add", ".");
+        git("commit", "-m", "base");
+        git("branch", "feature");
+        Files.write(directory.resolve("image.bin"), master);
+        git("add", ".");
+        git("commit", "-m", "master");
+        git("checkout", "feature");
+        Files.write(directory.resolve("image.bin"), feature);
+        git("add", ".");
+        git("commit", "-m", "feature");
+        var service = new RepositoryService();
+        assertThrows(RuntimeException.class, () -> service.merge(directory, "master"));
+        assertTrue(service.binaryConflict(directory, "image.bin"));
+        service.resolveConflictUsingStage(directory, "image.bin", 3);
+        assertArrayEquals(master, Files.readAllBytes(directory.resolve("image.bin")));
+        assertTrue(service.conflictedFiles(directory).isEmpty());
+    }
+
     @Test void conflictVersionOrEmptyHandlesMissingBaseStage() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
