@@ -847,16 +847,20 @@ public final class RepositoryService {
         git.run(findRepository(directory), "rebase", branchName);
     }
     public void continueRebase(Path directory) {
+        resumeRebase(directory, "--continue");
+    }
+
+    private void resumeRebase(Path directory, String operation) {
         Path root = findRepository(directory);
         Path editor = gitDirectory(root).resolve("git-client-rebase-editor.java");
         Path messages = gitDirectory(root).resolve("git-client-rebase-messages.map");
         String command = java.nio.file.Files.isRegularFile(editor)
                 && java.nio.file.Files.isRegularFile(messages)
-                ? "java \"" + editor.toString().replace('\\', '/')
-                        + "\" message \"" + messages.toString().replace('\\', '/') + "\""
+                ? "java \\"" + editor.toString().replace('\\', '/')
+                        + "\\" message \\"" + messages.toString().replace('\\', '/') + "\\""
                 : "true";
         try {
-            git.run(root, "-c", "core.editor=" + command, "rebase", "--continue");
+            git.run(root, "-c", "core.editor=" + command, "rebase", operation);
         } finally {
             if (!rebaseInProgress(root)) cleanupInteractiveRebaseFiles(root);
         }
@@ -917,7 +921,7 @@ public final class RepositoryService {
     }
 
     public void skipRebase(Path directory) {
-        git.run(findRepository(directory), "rebase", "--skip");
+        resumeRebase(directory, "--skip");
     }
     public void abortRebase(Path directory) {
         Path root = findRepository(directory);
