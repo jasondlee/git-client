@@ -374,6 +374,34 @@ public final class WorkspaceView extends BorderPane {
                     () -> String.join("\n", repositories.gitConfiguration(current)));
         });
         Button reset = new Button("Reset...");
+        Button hooks = new Button("Installed Hooks");
+        Button lfsFiles = new Button("LFS Files");
+        Button lfsTrack = new Button("Track with LFS");
+        hooks.setOnAction(e -> {
+            if (repository == null) return;
+            Path current = repository;
+            showTextReport("Installed Git hooks",
+                    () -> String.join("\n", repositories.installedHooks(current)));
+        });
+        lfsFiles.setOnAction(e -> {
+            if (repository == null) return;
+            Path current = repository;
+            showTextReport("Git LFS tracked files",
+                    () -> String.join("\n", repositories.lfsTrackedFiles(current)));
+        });
+        lfsTrack.setOnAction(e -> {
+            if (repository == null) return;
+            TextInputDialog dialog = new TextInputDialog("*.psd");
+            dialog.setTitle("Track with Git LFS");
+            dialog.setHeaderText("Add a Git LFS tracking pattern");
+            dialog.setContentText("Pattern:");
+            dialog.showAndWait().ifPresent(pattern -> {
+                Path current = repository;
+                confirmOperation("Track '" + pattern
+                                + "' with Git LFS? This updates .gitattributes.",
+                        () -> repositories.trackLfsPattern(current, pattern));
+            });
+        });
         Button submodules = new Button("Submodules");
         Button updateSubmodules = new Button("Update Submodules");
         reset.setOnAction(e -> {
@@ -541,7 +569,8 @@ public final class WorkspaceView extends BorderPane {
         MenuButton remoteMenu = actionsMenu("Remotes", addRemote, renameRemote,
                 removeRemote, remoteDetails);
         MenuButton advancedMenu = actionsMenu("Advanced", exportPatch, applyPatch,
-                configView, configEdit, worktrees, addWorktree, removeWorktree, submodules,
+                configView, configEdit, hooks, lfsFiles, lfsTrack,
+                worktrees, addWorktree, removeWorktree, submodules,
                 updateSubmodules, createTag, annotatedTag, deleteTag, stash, applyStash, dropStash);
         ToolBar toolbar = new ToolBar(open, recentRepositories, initialize, clone, refresh, stage, unstage, stageHunk, unstageHunk,
                 discard, ignore,
