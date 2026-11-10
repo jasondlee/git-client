@@ -66,7 +66,7 @@ mvn --batch-mode --no-transfer-progress install
 mvn --batch-mode --no-transfer-progress -pl git-app javafx:jlink
 jpackage --type app-image --name GitClient \
   --runtime-image git-app/target/image \
-  --module gitclient.app/io.github.jasondlee.gitclient.app.GitClientApp \
+  --module gitclient.app/com.steeplesoft.kiboko.app.GitClientApp \
   --dest dist
 ```
 

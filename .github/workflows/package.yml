@@ -52,7 +52,7 @@ jobs:
         run: |
           jpackage --type app-image --name GitClient \
             --runtime-image git-app/target/image \
-            --module gitclient.app/io.github.jasondlee.gitclient.app.GitClientApp \
+            --module gitclient.app/com.steeplesoft.kiboko.app.GitClientApp \
             --dest dist
       - name: Build native Linux installers
         if: runner.os == 'Linux'
