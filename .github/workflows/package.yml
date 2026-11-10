@@ -27,6 +27,16 @@ jobs:
           cache: maven
       - name: Build and verify modules
         run: mvn --batch-mode --no-transfer-progress install
+      - name: Install Linux packaging prerequisites
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y fakeroot dpkg-dev rpm
+      - name: Install Windows packaging prerequisites
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install wixtoolset --no-progress -y
+          $wix = Get-ChildItem 'C:\Program Files (x86)\WiX Toolset*\bin' -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($wix) { $wix.FullName | Out-File -FilePath $env:GITHUB_PATH -Append }
       - name: Create modular runtime image
         run: mvn --batch-mode --no-transfer-progress -pl git-app javafx:jlink
       - name: Verify runtime includes application module
@@ -44,6 +54,39 @@ jobs:
             --runtime-image git-app/target/image \
             --module gitclient.app/io.github.jasondlee.gitclient.app.GitClientApp \
             --dest dist
+      - name: Build native Linux installers
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          jpackage --type deb --app-image dist/GitClient --name gitclient \
+            --app-version 0.1.0 --linux-shortcut --dest installers
+          jpackage --type rpm --app-image dist/GitClient --name gitclient \
+            --app-version 0.1.0 --linux-shortcut --dest installers
+      - name: Build native Windows installer
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          jpackage --type msi --app-image dist/GitClient --name GitClient \
+            --app-version 0.1.0 --win-menu --win-shortcut --dest installers
+      - name: Build native macOS installer
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          jpackage --type dmg --app-image dist/GitClient.app --name GitClient \
+            --app-version 0.1.0 --dest installers
+      - name: Verify native installers
+        shell: bash
+        run: |
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            ls installers/*.deb installers/*.rpm
+            dpkg-deb --info installers/*.deb
+            rpm -qip installers/*.rpm
+          elif [[ "$RUNNER_OS" == "Windows" ]]; then
+            ls installers/*.msi
+          else
+            ls installers/*.dmg
+            hdiutil imageinfo installers/*.dmg
+          fi
       - name: Verify application bundle exists
         shell: bash
         run: |
@@ -67,6 +110,12 @@ jobs:
         if: runner.os == 'Windows'
         shell: pwsh
         run: Compress-Archive -Path dist/GitClient -DestinationPath GitClient-Windows.zip
+      - name: Upload native installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: GitClient-Installer-${{ runner.os }}
+          path: installers/*
+          if-no-files-found: error
       - name: Upload platform bundle
         uses: actions/upload-artifact@v7.0.2
         with:
