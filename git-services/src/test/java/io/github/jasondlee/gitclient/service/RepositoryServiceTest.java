@@ -22,6 +22,25 @@ class RepositoryServiceTest {
             throw new java.io.UncheckedIOException(ex);
         }
     }
+    @Test void previewsAndCleansOnlyUntrackedFiles() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
+        Files.writeString(directory.resolve("tracked.txt"), "keep\n");
+        git("add", "tracked.txt");
+        git("commit", "-m", "initial");
+        Files.writeString(directory.resolve("untracked.txt"), "delete\n");
+        Files.writeString(directory.resolve(".gitignore"), "ignored.txt\n");
+        Files.writeString(directory.resolve("ignored.txt"), "ignore\n");
+        var service = new RepositoryService();
+        assertTrue(service.cleanPreview(directory, false).stream()
+                .anyMatch(path -> path.contains("untracked.txt")));
+        service.cleanUntracked(directory, false);
+        assertFalse(Files.exists(directory.resolve("untracked.txt")));
+        assertTrue(Files.exists(directory.resolve("ignored.txt")));
+        assertTrue(Files.exists(directory.resolve("tracked.txt")));
+    }
     @Test void resolvesThreeWayMergeConflict() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
