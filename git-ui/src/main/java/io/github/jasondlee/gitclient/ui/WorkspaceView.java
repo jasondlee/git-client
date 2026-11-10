@@ -1057,6 +1057,25 @@ public final class WorkspaceView extends BorderPane {
     private void loadConflictEditor(Path current, String path) {
         Thread.startVirtualThread(() -> {
             try {
+                if (repositories.binaryConflict(current, path)) {
+                    Platform.runLater(() -> {
+                        Alert choice = new Alert(Alert.AlertType.CONFIRMATION);
+                        choice.setTitle("Resolve Binary Conflict");
+                        choice.setHeaderText(path);
+                        choice.setContentText("This file contains binary data. Choose a complete version; it cannot be safely edited as text.");
+                        ButtonType ours = new ButtonType("Keep Ours");
+                        ButtonType theirs = new ButtonType("Keep Theirs");
+                        choice.getButtonTypes().setAll(ours, theirs, ButtonType.CANCEL);
+                        choice.showAndWait().ifPresent(selected -> {
+                            if (selected == ours || selected == theirs) {
+                                int stage = selected == ours ? 2 : 3;
+                                confirmOperation("Stage selected binary version for '" + path + "'?",
+                                        () -> repositories.resolveConflictUsingStage(current, path, stage));
+                            }
+                        });
+                    });
+                    return;
+                }
                 String base = repositories.conflictVersionOrEmpty(current, path, 1);
                 String ours = repositories.conflictVersionOrEmpty(current, path, 2);
                 String theirs = repositories.conflictVersionOrEmpty(current, path, 3);
