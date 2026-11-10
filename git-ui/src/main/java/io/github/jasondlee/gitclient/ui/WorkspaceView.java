@@ -1320,6 +1320,14 @@ public final class WorkspaceView extends BorderPane {
                             javafx.scene.paint.Color.DEEPPINK,
                             javafx.scene.paint.Color.TEAL
                     };
+                    int graphWidth = graph.lines().mapToInt(line -> {
+                        int boundary = 0;
+                        while (boundary < line.length()
+                                && "*|/\\\\ ".indexOf(line.charAt(boundary)) >= 0) {
+                            boundary++;
+                        }
+                        return boundary;
+                    }).max().orElse(1);
                     for (String line : graph.split("\\R")) {
                         int boundary = 0;
                         while (boundary < line.length()
@@ -1329,7 +1337,7 @@ public final class WorkspaceView extends BorderPane {
                         final double cell = 12;
                         final double rowHeight = 24;
                         javafx.scene.canvas.Canvas lanes =
-                                new javafx.scene.canvas.Canvas(Math.max(1, boundary) * cell, rowHeight);
+                                new javafx.scene.canvas.Canvas(Math.max(1, graphWidth) * cell, rowHeight);
                         javafx.scene.canvas.GraphicsContext gc = lanes.getGraphicsContext2D();
                         gc.setLineWidth(2.2);
                         for (int column = 0; column < boundary; column++) {
