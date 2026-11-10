@@ -392,6 +392,16 @@ public final class RepositoryService {
                 "--no-ext-diff", "--no-color", commitId, "--", commitPath),
                 StandardCharsets.UTF_8);
     }
+    /** Search tracked filenames without traversing ignored or untracked directories. */
+    public List<String> searchTrackedPaths(Path directory, String query, int limit) {
+        if (query == null || query.isBlank() || limit <= 0) return List.of();
+        byte[] data = git.run(findRepository(directory), "ls-files", "-z");
+        String needle = query.toLowerCase(java.util.Locale.ROOT);
+        return Arrays.stream(new String(data, StandardCharsets.UTF_8).split("\\u0000"))
+                .filter(path -> !path.isEmpty())
+                .filter(path -> path.toLowerCase(java.util.Locale.ROOT).contains(needle))
+                .limit(Math.min(limit, 1000)).toList();
+    }
     public List<String> searchCommits(Path directory, String query, int count) {
         if (query == null || query.isBlank() || count <= 0) return List.of();
         String output = new String(git.run(findRepository(directory), "log", "--all",
