@@ -30,15 +30,20 @@ public final class CommitGraphView extends VBox {
     private final Consumer<String> copyCommit;
     private final Consumer<String> cherryPick;
     private final Consumer<String> revert;
+    private final Consumer<String> branchAt;
+    private final Consumer<String> tagAt;
     private int width = 1;
 
     public CommitGraphView(Consumer<String> openCommit, Consumer<String> copyCommit,
-            Consumer<String> cherryPick, Consumer<String> revert) {
+            Consumer<String> cherryPick, Consumer<String> revert,
+            Consumer<String> branchAt, Consumer<String> tagAt) {
         super(6);
         this.openCommit = openCommit;
         this.copyCommit = copyCommit;
         this.cherryPick = cherryPick;
         this.revert = revert;
+        this.branchAt = branchAt;
+        this.tagAt = tagAt;
         search.setPromptText("Find commit by SHA, subject, or ref");
         search.textProperty().addListener((observable, oldValue, newValue) -> {
             updateMatches();
@@ -98,8 +103,13 @@ public final class CommitGraphView extends VBox {
                     pick.setOnAction(event -> cherryPick.accept(hash));
                     MenuItem undo = new MenuItem("Revert Commit");
                     undo.setOnAction(event -> revert.accept(hash));
+                    MenuItem createBranch = new MenuItem("Create Branch Here");
+                    createBranch.setOnAction(event -> branchAt.accept(hash));
+                    MenuItem createTag = new MenuItem("Create Tag Here");
+                    createTag.setOnAction(event -> tagAt.accept(hash));
                     setContextMenu(new ContextMenu(inspect, copy,
-                            new SeparatorMenuItem(), pick, undo));
+                            new SeparatorMenuItem(), pick, undo,
+                            new SeparatorMenuItem(), createBranch, createTag));
                 }
             }
         });
