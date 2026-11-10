@@ -129,6 +129,22 @@ class RepositoryServiceTest {
         assertEquals(1, service.worktrees(directory).size());
     }
 
+    @Test void searchesTrackedPathsWithoutIncludingUntrackedFiles() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        Files.writeString(directory.resolve("Alpha.txt"), "tracked\n");
+        Files.writeString(directory.resolve("alphabet.md"), "tracked\n");
+        git("add", ".");
+        git("commit", "-m", "initial");
+        Files.writeString(directory.resolve("alpha-untracked.txt"), "untracked\n");
+        var service = new RepositoryService();
+        assertEquals(2, service.searchTrackedPaths(directory, "ALPHA", 10).size());
+        assertEquals(1, service.searchTrackedPaths(directory, "alpha", 1).size());
+        assertTrue(service.searchTrackedPaths(directory, "", 10).isEmpty());
+        assertTrue(service.searchTrackedPaths(directory, "alpha", 0).isEmpty());
+    }
+
     @Test void historyPagesDoNotRepeatCommits() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
