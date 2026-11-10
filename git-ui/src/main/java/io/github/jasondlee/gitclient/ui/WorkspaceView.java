@@ -807,7 +807,7 @@ public final class WorkspaceView extends BorderPane {
         commitMessage.setPrefRowCount(3);
         commitButton.setOnAction(e -> commit());
         amend.setOnAction(e -> commitButton.setText(amend.isSelected() ? "Amend Commit" : "Commit Staged"));
-        commitButton.disableProperty().bind(commitMessage.textProperty().isEmpty().or(operationRunning));
+        commitButton.disableProperty().bind(commitMessage.textProperty().isEmpty().or(operationRunning).or(loading));
         VBox commitPane = new VBox(6, new Label("Commit staged changes"), commitMessage,
                 amend, commitButton, message);
         commitPane.setPadding(new Insets(8));
@@ -929,8 +929,8 @@ public final class WorkspaceView extends BorderPane {
         runBranchAction(() -> repositories.switchBranch(repository, name));
     }
     private void runBranchAction(Runnable action) {
-        if (operationRunning.get()) {
-            message.setText("Another Git operation is already running.");
+        if (operationRunning.get() || loading.get()) {
+            message.setText("Wait for the current repository operation to finish.");
             return;
         }
         operationRunning.set(true);
@@ -1639,7 +1639,7 @@ public final class WorkspaceView extends BorderPane {
     }
     private void commit() {
         Path current = repository;
-        if (current == null || operationRunning.get()) return;
+        if (current == null || operationRunning.get() || loading.get()) return;
         String text = commitMessage.getText();
         boolean amending = amend.isSelected();
         if (text.isBlank()) {
