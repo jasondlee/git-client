@@ -9,13 +9,12 @@ import static org.junit.jupiter.api.Assertions.*;
 class GitCommandExecutorTest {
     @TempDir Path directory;
 
-    @Test void runsGitAndCapturesOutput() {
+    @Test void runsGitAndCapturesOutput() throws Exception {
         var git = new GitCommandExecutor();
         git.run(directory, "init");
         String root = new String(git.run(directory, "rev-parse", "--show-toplevel"),
                 StandardCharsets.UTF_8).strip();
-        assertEquals(directory.toAbsolutePath().normalize().toString(),
-                Path.of(root).toAbsolutePath().normalize().toString());
+        assertEquals(directory.toRealPath(), Path.of(root).toRealPath());
     }
 
     @Test void reportsGitFailuresWithoutHangingForCredentials() {
