@@ -854,6 +854,7 @@ public final class WorkspaceView extends BorderPane {
     private void loadConflictEditor(Path current, String path) {
         Thread.startVirtualThread(() -> {
             try {
+                String base = repositories.conflictVersion(current, path, 1);
                 String ours = repositories.conflictVersion(current, path, 2);
                 String theirs = repositories.conflictVersion(current, path, 3);
                 String working = java.nio.file.Files.readString(current.resolve(path));
@@ -861,6 +862,9 @@ public final class WorkspaceView extends BorderPane {
                     Dialog<String> dialog = new Dialog<>();
                     dialog.setTitle("Resolve: " + path);
                     dialog.setHeaderText("Review both versions and edit the resolved contents");
+                    TextArea baseView = new TextArea(base);
+                    baseView.setEditable(false);
+                    baseView.setPrefRowCount(8);
                     TextArea oursView = new TextArea(ours);
                     TextArea theirsView = new TextArea(theirs);
                     TextArea result = new TextArea(working);
@@ -873,7 +877,8 @@ public final class WorkspaceView extends BorderPane {
                     Button useTheirs = new Button("Use Theirs");
                     useOurs.setOnAction(e -> result.setText(ours));
                     useTheirs.setOnAction(e -> result.setText(theirs));
-                    VBox content = new VBox(8, new Label("Ours"), oursView,
+                    VBox content = new VBox(8, new Label("Common ancestor"), baseView,
+                            new Label("Ours"), oursView,
                             new Label("Theirs"), theirsView,
                             new HBox(8, useOurs, useTheirs),
                             new Label("Resolution (editable)"), result);
