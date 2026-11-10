@@ -51,7 +51,8 @@ row to inspect it. The toolbar's **Commit Graph** command opens a larger
 graph view.
 
 Right-click a commit in either history view to inspect it, copy its full SHA,
-cherry-pick or revert it, or create a branch or tag pointing at that commit.
+compare it to HEAD, cherry-pick or revert it, or create a branch or tag
+pointing at that commit.
 History operations that change repository state require confirmation. The
 graph currently loads the most recent 500 commits across all refs.
 
