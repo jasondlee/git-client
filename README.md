@@ -20,24 +20,46 @@ mvn -pl git-app javafx:run
 
 The application can open multiple repositories in tabs. Repository paths may be passed as command-line arguments, and previously open tabs are restored when no paths are specified.
 
-## Package a desktop application
+## Native packaging
 
-Build on the operating system for which you want to package the application:
+The [packaging workflow](.github/workflows/package.yml) builds self-contained
+Java runtime bundles and platform-specific installers using JDK 27's `jlink`
+and `jpackage`. Artifacts are uploaded for each platform:
+
+| Platform | Portable application | Native installer |
+| --- | --- | --- |
+| Windows | `GitClient-Windows.zip` | `.msi` |
+| macOS | `GitClient-macOS.tar.gz` | `.dmg` |
+| Linux | `GitClient-Linux.tar.gz` | `.deb` and `.rpm` |
+
+Installers are built on their corresponding operating systems. To package
+locally, install JDK 27, Maven, Git, and your OS packaging prerequisites
+(WiX Toolset on Windows, `dpkg-deb`/`rpmbuild` on Linux):
 
 ```bash
-mvn --batch-mode install
-mvn --batch-mode -pl git-app javafx:jlink
-jpackage --type app-image --name GitClient --runtime-image git-app/target/image --module gitclient.app/io.github.jasondlee.gitclient.app.GitClientApp --dest dist
+mvn --batch-mode --no-transfer-progress install
+mvn --batch-mode --no-transfer-progress -pl git-app javafx:jlink
+jpackage --type app-image --name GitClient \
+  --runtime-image git-app/target/image \
+  --module gitclient.app/io.github.jasondlee.gitclient.app.GitClientApp \
+  --dest dist
 ```
 
-This produces `dist/GitClient` on Windows/Linux and `dist/GitClient.app` on macOS. Use the native launcher inside the resulting application bundle. The archive produced by CI preserves the whole bundle; do not distribute the launcher alone.
+Then package the application image with `jpackage --type msi` on Windows,
+`--type dmg` on macOS, or `--type deb`/`--type rpm` on Linux. For
+example, on Linux:
 
-GitHub Actions provides two separate workflows:
+```bash
+jpackage --type deb --app-image dist/GitClient --name gitclient \
+  --app-version 0.1.0 --linux-shortcut --dest installers
+```
 
-- [Build and test](.github/workflows/build.yml) runs Maven verification on Ubuntu, Windows, and macOS.
-- [Package desktop application](.github/workflows/package.yml) builds and uploads platform-specific application bundles on version tags or manual dispatch.
-
-Packaging has not yet been verified on every runner. These application bundles are not signed or notarized, and are not yet MSI, DMG, or DEB installers. Do not treat them as production releases until packaging and launch smoke tests pass on each OS.
+Git must still be installed separately and available on `PATH` at runtime.
+These installers are **unsigned and unnotarized**; users may encounter OS
+security prompts. CI verifies that installer files are created and can be
+inspected, but it does not install and launch them in a graphical session.
+Code signing, notarization, release publication, and installer launch smoke
+tests remain separate release-readiness work.
 
 ## Verification and quality gates
 
