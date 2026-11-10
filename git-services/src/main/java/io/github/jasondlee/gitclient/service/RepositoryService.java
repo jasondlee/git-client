@@ -32,7 +32,7 @@ public final class RepositoryService {
         return Path.of(path).toAbsolutePath().normalize();
     }
     public RepositoryStatus status(Path directory) {
-        return statusParser.parse(git.run(directory, "status", "--porcelain=v2", "--branch", "-z"));
+        return statusParser.parse(git.run(directory, "status", "--porcelain=v2", "--branch", "-z", "--untracked-files=no"));
     }
     /** Stage the entire current contents of the selected paths. */
     /** Preview untracked files and directories that Git clean would remove. */
