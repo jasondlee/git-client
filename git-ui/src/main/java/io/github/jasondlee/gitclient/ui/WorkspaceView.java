@@ -693,8 +693,13 @@ public final class WorkspaceView extends BorderPane {
                                 () -> repositories.revert(current, item.id()));
                     }
                 });
+                MenuItem createBranch = new MenuItem("Create Branch Here");
+                createBranch.setOnAction(event -> createReferenceAt(item.id(), false));
+                MenuItem createTag = new MenuItem("Create Tag Here");
+                createTag.setOnAction(event -> createReferenceAt(item.id(), true));
                 menu.getItems().addAll(details, copyHash, new SeparatorMenuItem(),
-                        cherryPick, revert);
+                        cherryPick, revert, new SeparatorMenuItem(),
+                        createBranch, createTag);
                 setContextMenu(menu);
             }
         });
