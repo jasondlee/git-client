@@ -85,6 +85,7 @@ class RepositoryServiceTest {
         git("commit", "-m", "feature adds file");
         var service = new RepositoryService();
         assertThrows(RuntimeException.class, () -> service.merge(directory, "master"));
+        assertEquals(java.util.Set.of(2, 3), service.conflictStages(directory, "new.txt"));
         assertEquals("", service.conflictVersionOrEmpty(directory, "new.txt", 1));
         assertEquals("feature version\n", service.conflictVersionOrEmpty(directory, "new.txt", 2));
         assertEquals("master version\n", service.conflictVersionOrEmpty(directory, "new.txt", 3));
