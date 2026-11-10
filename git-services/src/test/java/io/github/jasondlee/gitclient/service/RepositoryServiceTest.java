@@ -142,6 +142,33 @@ class RepositoryServiceTest {
         assertFalse(service.rebaseInProgress(directory));
     }
 
+    @Test void interactiveRebaseRewordsDuplicateSubjectsIndependently() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
+        Files.writeString(directory.resolve("base.txt"), "base\n");
+        git("add", ".");
+        git("commit", "-m", "base");
+        git("branch", "base");
+        Files.writeString(directory.resolve("first.txt"), "first\n");
+        git("add", ".");
+        git("commit", "-m", "duplicate");
+        Files.writeString(directory.resolve("second.txt"), "second\n");
+        git("add", ".");
+        git("commit", "-m", "duplicate");
+        var service = new RepositoryService();
+        var lines = service.interactiveRebasePlan(directory, "base").lines().toList();
+        String firstHash = lines.get(0).split(" ", 3)[1];
+        String secondHash = lines.get(1).split(" ", 3)[1];
+        String plan = lines.get(0).replaceFirst("^pick ", "reword ") + "\n"
+                + lines.get(1).replaceFirst("^pick ", "reword ") + "\n";
+        service.interactiveRebase(directory, "base", plan,
+                java.util.Map.of(firstHash, "first renamed", secondHash, "second renamed"));
+        var subjects = service.history(directory, 2).stream().map(c -> c.subject()).toList();
+        assertEquals(java.util.List.of("second renamed", "first renamed"), subjects);
+    }
+
     @Test void interactiveRebaseSquashesCommits() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
