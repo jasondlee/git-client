@@ -515,12 +515,27 @@ public final class RepositoryService {
             });
             if (present) {
                 byte[] contents = git.run(root, "show", ":" + stage + ":" + path);
-                for (byte value : contents) {
-                    if (value == 0) return true;
-                }
+                if (looksBinary(contents)) return true;
             }
         }
         return false;
+    }
+
+    private static boolean looksBinary(byte[] contents) {
+        for (byte value : contents) {
+            int unsigned = value & 0xff;
+            if (unsigned == 0 || unsigned < 9 || (unsigned > 13 && unsigned < 32)
+                    || unsigned == 127) return true;
+        }
+        try {
+            StandardCharsets.UTF_8.newDecoder()
+                    .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+                    .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
+                    .decode(java.nio.ByteBuffer.wrap(contents));
+            return false;
+        } catch (java.nio.charset.CharacterCodingException ex) {
+            return true;
+        }
     }
 
     /** Accept an unmodified binary conflict side without decoding or rewriting its bytes. */
