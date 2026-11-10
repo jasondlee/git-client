@@ -1057,10 +1057,11 @@ public final class WorkspaceView extends BorderPane {
     private void loadConflictEditor(Path current, String path) {
         Thread.startVirtualThread(() -> {
             try {
-                String base = repositories.conflictVersion(current, path, 1);
-                String ours = repositories.conflictVersion(current, path, 2);
-                String theirs = repositories.conflictVersion(current, path, 3);
-                String working = java.nio.file.Files.readString(current.resolve(path));
+                String base = repositories.conflictVersionOrEmpty(current, path, 1);
+                String ours = repositories.conflictVersionOrEmpty(current, path, 2);
+                String theirs = repositories.conflictVersionOrEmpty(current, path, 3);
+                String working = java.nio.file.Files.exists(current.resolve(path))
+                        ? java.nio.file.Files.readString(current.resolve(path)) : "";
                 Platform.runLater(() -> {
                     Dialog<String> dialog = new Dialog<>();
                     dialog.setTitle("Resolve: " + path);
