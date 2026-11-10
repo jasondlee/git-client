@@ -96,6 +96,25 @@ class RepositoryServiceTest {
                 () -> service.resolveConflictByDeleting(directory, "shared.txt"));
     }
 
+    @Test void fileCommitPatchShowsOnlySelectedFile() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        Files.writeString(directory.resolve("one.txt"), "one\n");
+        Files.writeString(directory.resolve("two.txt"), "two\n");
+        git("add", ".");
+        git("commit", "-m", "initial");
+        var service = new RepositoryService();
+        String commitId = service.history(directory, 1).getFirst().id();
+        String patch = service.fileCommitPatch(directory, commitId, "one.txt");
+        assertTrue(patch.contains("+one"), patch);
+        assertFalse(patch.contains("+two"), patch);
+        assertThrows(IllegalArgumentException.class,
+                () -> service.fileCommitPatch(directory, "--all", "one.txt"));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.fileCommitPatch(directory, commitId, "../outside"));
+    }
+
     @Test void fileHistoryFollowsRenames() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
