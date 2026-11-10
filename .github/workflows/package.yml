@@ -30,10 +30,14 @@ jobs:
         run: mvn --batch-mode --no-transfer-progress -pl git-app javafx:jlink
       - name: Create platform application bundle
         run: jpackage --type app-image --name GitClient --runtime-image git-app/target/image --module gitclient.app/io.github.jasondlee.gitclient.app.GitClientApp --dest dist
-      - name: Archive Unix application bundle
-        if: runner.os != 'Windows'
+      - name: Archive Linux application bundle
+        if: runner.os == 'Linux'
         shell: bash
-        run: tar -czf "GitClient-${{ runner.os }}.tar.gz" -C dist GitClient
+        run: tar -czf GitClient-Linux.tar.gz -C dist GitClient
+      - name: Archive macOS application bundle
+        if: runner.os == 'macOS'
+        shell: bash
+        run: tar -czf GitClient-macOS.tar.gz -C dist GitClient.app
       - name: Archive Windows application bundle
         if: runner.os == 'Windows'
         shell: pwsh
