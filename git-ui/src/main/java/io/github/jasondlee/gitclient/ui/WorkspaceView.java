@@ -961,6 +961,19 @@ public final class WorkspaceView extends BorderPane {
                                 new javafx.scene.text.Text(line.substring(boundary));
                         description.setStyle("-fx-font-family: monospace; -fx-font-size: 13px;");
                         flow.getChildren().add(description);
+                        java.util.regex.Matcher commitId =
+                                java.util.regex.Pattern.compile(
+                                        "(?<![0-9a-fA-F])[0-9a-fA-F]{7,40}(?![0-9a-fA-F])")
+                                        .matcher(line.substring(boundary));
+                        if (commitId.find()) {
+                            String id = commitId.group();
+                            flow.setOnMouseClicked(event -> {
+                                dialog.close();
+                                showTextReport("Commit " + id,
+                                        () -> repositories.showCommit(current, id));
+                            });
+                            flow.setStyle("-fx-cursor: hand; -fx-padding: 2px 4px;");
+                        }
                         rows.getChildren().add(flow);
                     }
                     javafx.scene.control.ScrollPane scroll =
