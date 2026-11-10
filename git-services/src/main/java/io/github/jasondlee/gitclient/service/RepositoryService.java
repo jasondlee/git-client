@@ -782,6 +782,16 @@ public final class RepositoryService {
     public void updateSubmodules(Path directory) {
         git.run(findRepository(directory), "submodule", "update", "--init", "--recursive");
     }
+    public void addSubmodule(Path directory, String url, String path) {
+        Path root = findRepository(directory);
+        validateRepositoryPath(root, path);
+        if (url == null || url.isBlank() || url.startsWith("-")
+                || url.contains("\\n") || url.contains("\\r")
+                || path.startsWith("-") || java.nio.file.Files.exists(root.resolve(path))) {
+            throw new IllegalArgumentException("Invalid submodule URL or destination");
+        }
+        git.run(root, "submodule", "add", "--", url, path);
+    }
     public void syncSubmodules(Path directory) {
         git.run(findRepository(directory), "submodule", "sync", "--recursive");
     }
