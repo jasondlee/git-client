@@ -944,7 +944,7 @@ public final class RepositoryService {
     public String commitGraph(Path directory, int count) {
         if (count <= 0) return "";
         return new String(git.run(findRepository(directory), "log", "--all",
-                "--graph", "--decorate", "--oneline", "--color=never",
+                "--graph", "--decorate", "--format=%H %s %d", "--color=never",
                 "-n", Integer.toString(Math.min(count, 1000))),
                 StandardCharsets.UTF_8);
     }
