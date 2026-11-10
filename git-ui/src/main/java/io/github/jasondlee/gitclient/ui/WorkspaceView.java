@@ -886,7 +886,31 @@ public final class WorkspaceView extends BorderPane {
                     area.setPrefSize(850, 550);
                     Dialog<Void> dialog = new Dialog<>();
                     dialog.setTitle(title);
-                    dialog.getDialogPane().setContent(area);
+                    TextField find = new TextField();
+                    find.setPromptText("Find in report (Enter for next match)");
+                    find.setAccessibleText("Search report contents");
+                    Runnable findNext = () -> {
+                        String query = find.getText();
+                        if (query == null || query.isEmpty()) return;
+                        String haystack = area.getText().toLowerCase(java.util.Locale.ROOT);
+                        String needle = query.toLowerCase(java.util.Locale.ROOT);
+                        int start = Math.max(area.getSelection().getEnd(), 0);
+                        int found = haystack.indexOf(needle, start);
+                        if (found < 0) found = haystack.indexOf(needle);
+                        if (found >= 0) {
+                            area.selectRange(found, found + query.length());
+                            area.requestFocus();
+                        }
+                    };
+                    find.setOnAction(event -> findNext.run());
+                    Button nextMatch = new Button("Find Next");
+                    nextMatch.setOnAction(event -> findNext.run());
+                    HBox searchBar = new HBox(8, find, nextMatch);
+                    HBox.setHgrow(find, javafx.scene.layout.Priority.ALWAYS);
+                    VBox report = new VBox(8, searchBar, area);
+                    VBox.setVgrow(area, javafx.scene.layout.Priority.ALWAYS);
+                    report.setPrefSize(850, 550);
+                    dialog.getDialogPane().setContent(report);
                     dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
                     dialog.showAndWait();
                     message.setText(title + " loaded");
