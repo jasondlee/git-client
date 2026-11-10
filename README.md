@@ -1,34 +1,50 @@
 # Git Client
 
-An open-source, cross-platform JavaFX Git GUI using the native Git command-line executable.
-
-## Current state
-
-Milestone 1 is an **unverified implementation scaffold**. It opens an existing Git working-tree repository and displays the current branch, changed files, and up to 100 recent commits. Git calls execute off the JavaFX application thread.
+An open-source, cross-platform JavaFX desktop Git client that uses the installed Git command-line executable.
 
 ## Requirements
 
-- JDK 27
-- Maven
-- Git on `PATH`
+- JDK 27 and Maven for development
+- Git available on `PATH` for repository operations
+- Windows, macOS, or Linux with graphical desktop support
+
+The packaged desktop bundles include a custom Java runtime, so end users do not need to install a separate JDK.
 
 ## Build and run
 
 ```bash
-mvn clean install
+mvn --batch-mode verify
+mvn --batch-mode install
 mvn -pl git-app javafx:run
 ```
 
+The application can open multiple repositories in tabs. Repository paths may be passed as command-line arguments, and previously open tabs are restored when no paths are specified.
+
+## Package a desktop application
+
+Build on the operating system for which you want to package the application:
+
+```bash
+mvn --batch-mode install
+mvn --batch-mode -pl git-app javafx:jlink
+jpackage --type app-image --name GitClient --runtime-image git-app/target/image --module gitclient.app/io.github.jasondlee.gitclient.app.GitClientApp --dest dist
+```
+
+This produces `dist/GitClient` on Windows/Linux and `dist/GitClient.app` on macOS. Use the native launcher inside the resulting application bundle. The archive produced by CI preserves the whole bundle; do not distribute the launcher alone.
+
+GitHub Actions provides two separate workflows:
+
+- [Build and test](.github/workflows/build.yml) runs Maven verification on Ubuntu, Windows, and macOS.
+- [Package desktop application](.github/workflows/package.yml) builds and uploads platform-specific application bundles on version tags or manual dispatch.
+
+Packaging has not yet been verified on every runner. These application bundles are not signed or notarized, and are not yet MSI, DMG, or DEB installers. Do not treat them as production releases until packaging and launch smoke tests pass on each OS.
+
 ## Project modules
 
-- `git-model`: immutable repository, file and commit records
+- `git-model`: repository, file, and commit records
 - `git-cli`: native Git execution and porcelain status parsing
-- `git-services`: repository operations
+- `git-services`: repository operations and integration tests
 - `git-ui`: JavaFX repository explorer
 - `git-app`: desktop application launcher
 
-See [architecture](docs/ARCHITECTURE.md) and [Milestone 1 notes](docs/MILESTONE-1.md).
-
-## Development status
-
-The scaffold has not yet been compiled or run in a JavaFX environment. Tests, CI, robust cancellation, empty-repository handling, staging, and advanced workflows are next steps.
+See [architecture](docs/ARCHITECTURE.md).
