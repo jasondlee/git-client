@@ -990,7 +990,35 @@ public final class WorkspaceView extends BorderPane {
                                     }
                                 });
                             });
-                    HBox content = new HBox(8, commits, patch);
+                    Button more = new Button("Load More File Commits");
+                    more.setAccessibleText("Load the next page of file history");
+                    more.setDisable(entries.size() < 200);
+                    java.util.concurrent.atomic.AtomicBoolean pageLoading =
+                            new java.util.concurrent.atomic.AtomicBoolean(false);
+                    more.setOnAction(event -> {
+                        if (!pageLoading.compareAndSet(false, true)) return;
+                        int offset = commits.getItems().size();
+                        more.setDisable(true);
+                        Thread.startVirtualThread(() -> {
+                            try {
+                                var next = repositories.fileHistoryPage(current, path, offset, 200);
+                                Platform.runLater(() -> {
+                                    commits.getItems().addAll(next);
+                                    pageLoading.set(false);
+                                    more.setDisable(next.size() < 200);
+                                });
+                            } catch (Exception ex) {
+                                Platform.runLater(() -> {
+                                    pageLoading.set(false);
+                                    more.setDisable(false);
+                                    message.setText("File history: " + ex.getMessage());
+                                });
+                            }
+                        });
+                    });
+                    VBox fileList = new VBox(8, commits, more);
+                    VBox.setVgrow(commits, javafx.scene.layout.Priority.ALWAYS);
+                    HBox content = new HBox(8, fileList, patch);
                     HBox.setHgrow(patch, javafx.scene.layout.Priority.ALWAYS);
                     content.setPrefSize(1100, 650);
                     dialog.getDialogPane().setContent(content);
