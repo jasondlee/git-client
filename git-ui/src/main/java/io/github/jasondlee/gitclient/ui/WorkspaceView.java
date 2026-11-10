@@ -475,6 +475,8 @@ public final class WorkspaceView extends BorderPane {
         Button skipRebase = new Button("Skip Rebase Commit");
         Button conflicts = new Button("Conflicts");
         Button rebaseProgress = new Button("Rebase Progress");
+        Button rebaseRecovery = new Button("Rebase Recovery");
+        rebaseRecovery.setOnAction(e -> showRebaseRecovery());
         Button resolveConflicts = new Button("Resolve Conflict");
         resolveConflicts.setOnAction(e -> showConflictEditor());
         continueOperation.setOnAction(e -> operateOnSequencer(false));
