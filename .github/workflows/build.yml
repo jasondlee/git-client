@@ -26,5 +26,20 @@ jobs:
           distribution: temurin
           java-version: '27'
           cache: maven
+      - name: Print toolchain versions
+        run: |
+          java -version
+          mvn -version
+          git --version
       - name: Verify build and run tests
-        run: mvn --batch-mode --no-transfer-progress verify
+        run: mvn --batch-mode --no-transfer-progress --fail-at-end verify
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports-${{ matrix.os }}
+          path: |
+            **/target/surefire-reports/**
+            **/target/failsafe-reports/**
+          if-no-files-found: ignore
+          retention-days: 14
