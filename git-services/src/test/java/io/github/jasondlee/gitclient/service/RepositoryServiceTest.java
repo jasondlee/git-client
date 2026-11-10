@@ -127,6 +127,28 @@ class RepositoryServiceTest {
                 () -> service.untrackLfsPattern(directory, "line\\nnext"));
     }
 
+    @Test void createsWorktreeWithNewBranchFromHead() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        Files.writeString(directory.resolve("tracked.txt"), "initial\n");
+        git("add", ".");
+        git("commit", "-m", "initial");
+        var service = new RepositoryService();
+        Path linked = directory.getParent().resolve("linked-" + java.util.UUID.randomUUID());
+        try {
+            service.addWorktreeWithNewBranch(directory, linked, "new-worktree-branch");
+            assertTrue(Files.isRegularFile(linked.resolve("tracked.txt")));
+            assertTrue(service.branches(directory).contains("new-worktree-branch"));
+            assertTrue(service.worktrees(directory).stream()
+                    .anyMatch(path -> Path.of(path).toAbsolutePath().normalize().equals(linked)));
+        } finally {
+            if (Files.exists(linked)) {
+                git("worktree", "remove", "--force", linked.toString());
+            }
+        }
+    }
+
     @Test void submoduleSyncAndWorktreePruneWorkWithoutLinkedRepositories() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
