@@ -32,7 +32,8 @@ views provide case-insensitive Find Next navigation.
 
 The **Advanced** menu includes linked worktree creation/removal, creation of a
 new branch and linked worktree from HEAD, stale-worktree pruning, submodule
-addition, update and URL synchronization, and Git LFS pattern tracking/untracking.
+addition, update and URL synchronization, and Git LFS pattern tracking/untracking
+and object downloads.
 Git LFS operations require the separate `git-lfs` executable to be installed.
 
 Conflict resolution supports text-based three-way editing, accepting a
