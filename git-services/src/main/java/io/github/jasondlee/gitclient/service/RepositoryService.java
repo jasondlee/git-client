@@ -503,6 +503,21 @@ public final class RepositoryService {
         validateBranchName(name);
         git.run(findRepository(directory), "branch", name);
     }
+    public void createBranchAt(Path directory, String name, String commitId) {
+        validateBranchName(name);
+        validateCommitId(commitId);
+        git.run(findRepository(directory), "branch", name, commitId);
+    }
+
+    public void createTagAt(Path directory, String name, String commitId) {
+        if (name == null || name.isBlank() || name.startsWith("-")
+                || name.contains(" ") || name.contains("..")) {
+            throw new IllegalArgumentException("Invalid tag name");
+        }
+        validateCommitId(commitId);
+        git.run(findRepository(directory), "tag", name, commitId);
+    }
+
     public void switchBranch(Path directory, String name) {
         validateBranchName(name);
         git.run(findRepository(directory), "switch", name);
