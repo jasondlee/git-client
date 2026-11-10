@@ -952,9 +952,10 @@ public final class WorkspaceView extends BorderPane {
                     }
                     Dialog<String> dialog = new Dialog<>();
                     dialog.setTitle("Interactive Rebase onto " + base);
-                    dialog.setHeaderText("Reorder commits or change pick to squash, fixup, or drop");
+                    dialog.setHeaderText("Reorder commits, reword messages, squash, fixup, or drop");
                     javafx.collections.ObservableList<String> commits =
                             javafx.collections.FXCollections.observableArrayList(initial.lines().toList());
+                    java.util.Map<String, String> replacementMessages = new java.util.HashMap<>();
                     ListView<String> commitList = new ListView<>(commits);
                     commitList.setCellFactory(view -> new javafx.scene.control.ListCell<>() {
                         @Override
@@ -1013,12 +1014,29 @@ public final class WorkspaceView extends BorderPane {
                     commitList.getSelectionModel().selectFirst();
                     ComboBox<String> action = new ComboBox<>(
                             javafx.collections.FXCollections.observableArrayList(
-                                    "pick", "squash", "fixup", "drop"));
+                                    "pick", "reword", "squash", "fixup", "drop"));
                     action.setValue("pick");
                     action.setOnAction(event -> {
                         int index = commitList.getSelectionModel().getSelectedIndex();
                         if (index < 0) return;
                         String line = commits.get(index);
+                        String[] fields = line.split(" ", 3);
+                        if (fields[0].equals(action.getValue())) return;
+                        if (action.getValue().equals("reword")) {
+                            TextInputDialog messageDialog = new TextInputDialog(
+                                    fields.length > 2 ? fields[2] : "");
+                            messageDialog.setTitle("Reword Commit");
+                            messageDialog.setHeaderText("New commit subject for " + fields[1].substring(0, 8));
+                            messageDialog.setContentText("Commit subject:");
+                            java.util.Optional<String> replacement = messageDialog.showAndWait();
+                            if (replacement.isEmpty() || replacement.get().isBlank()) {
+                                action.setValue(fields[0]);
+                                return;
+                            }
+                            replacementMessages.put(fields[1], replacement.get().strip());
+                        } else {
+                            replacementMessages.remove(fields[1]);
+                        }
                         commits.set(index, action.getValue() + line.substring(line.indexOf(' ')));
                         commitList.getSelectionModel().select(index);
                     });
@@ -1045,7 +1063,7 @@ public final class WorkspaceView extends BorderPane {
                         }
                     });
                     Label instructions = new Label(
-                            "Select a commit to choose its action. Drag it to reorder, or use the Move buttons. "
+                            "Select a commit to choose its action (Reword prompts for a new subject). Drag to reorder. "
                                     + "Squash/fixup must follow a kept commit. "
                                     + "This rewrites local history.");
                     instructions.setWrapText(true);
@@ -1063,7 +1081,7 @@ public final class WorkspaceView extends BorderPane {
                                     Platform.runLater(() ->
                                             confirmOperation(
                                                     "Rewrite local commits using this interactive rebase plan?",
-                                                    () -> repositories.interactiveRebase(current, base, plan)));
+                                                    () -> repositories.interactiveRebase(current, base, plan, replacementMessages)));
                                 } catch (Exception ex) {
                                     Platform.runLater(() -> {
                                         Alert alert = new Alert(Alert.AlertType.ERROR);
