@@ -330,6 +330,36 @@ class RepositoryServiceTest {
         assertFalse(Files.exists(directory.resolve(".git/git-client-rebase-messages.map")));
     }
 
+    @Test void interactiveRebaseSquashCombinesMessagesAndChanges() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
+        Files.writeString(directory.resolve("base.txt"), "base\n");
+        git("add", ".");
+        git("commit", "-m", "base");
+        git("branch", "base");
+        Files.writeString(directory.resolve("one.txt"), "one\n");
+        git("add", ".");
+        git("commit", "-m", "first");
+        Files.writeString(directory.resolve("two.txt"), "two\n");
+        git("add", ".");
+        git("commit", "-m", "second");
+        var service = new RepositoryService();
+        var lines = service.interactiveRebasePlan(directory, "base").lines().toList();
+        service.interactiveRebase(directory, "base",
+                lines.get(0) + "\n"
+                        + lines.get(1).replaceFirst("^pick ", "squash ") + "\n");
+        assertEquals(1, service.history(directory, 10).stream()
+                .filter(commit -> !commit.subject().equals("base")).count());
+        String combined = service.showCommit(directory,
+                service.history(directory, 1).getFirst().id());
+        assertTrue(combined.contains("first"), combined);
+        assertTrue(combined.contains("second"), combined);
+        assertEquals("one\n", Files.readString(directory.resolve("one.txt")));
+        assertEquals("two\n", Files.readString(directory.resolve("two.txt")));
+    }
+
     @Test void interactiveRebaseSquashesCommits() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
