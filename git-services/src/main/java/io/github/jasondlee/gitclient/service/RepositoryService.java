@@ -376,8 +376,12 @@ public final class RepositoryService {
         validateRepositoryPath(root, path);
         if (contents == null) throw new IllegalArgumentException("Missing resolution");
         Path target = root.resolve(path).normalize();
-        if (java.nio.file.Files.isSymbolicLink(target)) {
-            throw new IllegalArgumentException("Cannot edit a symbolic link conflict");
+        Path ancestor = target;
+        while (ancestor != null && ancestor.startsWith(root)) {
+            if (java.nio.file.Files.isSymbolicLink(ancestor)) {
+                throw new IllegalArgumentException("Cannot resolve a conflict through a symbolic link");
+            }
+            ancestor = ancestor.getParent();
         }
         if (!conflictedFiles(root).contains(path)) {
             throw new IllegalArgumentException("File is not currently conflicted: " + path);
