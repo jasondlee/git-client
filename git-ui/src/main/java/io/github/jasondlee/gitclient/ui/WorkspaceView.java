@@ -1144,30 +1144,43 @@ public final class WorkspaceView extends BorderPane {
                             javafx.collections.FXCollections.observableArrayList(
                                     "pick", "reword", "edit", "squash", "fixup", "drop"));
                     action.setValue("pick");
+                    final boolean[] updatingSelection = {false};
                     action.setOnAction(event -> {
+                        if (updatingSelection[0]) return;
                         int index = commitList.getSelectionModel().getSelectedIndex();
                         if (index < 0) return;
                         String line = commits.get(index);
                         String[] fields = line.split(" ", 3);
-                        if (fields[0].equals(action.getValue())) return;
-                        if (action.getValue().equals("reword")) {
+                        String requestedAction = action.getValue();
+                        if (fields[0].equals(requestedAction)) return;
+                        if (requestedAction.equals("reword")) {
                             java.util.Optional<String> replacement = promptRewordMessage(
                                     fields[1], fields.length > 2 ? fields[2] : "");
                             if (replacement.isEmpty() || replacement.get().isBlank()) {
-                                action.setValue(fields[0]);
+                                updatingSelection[0] = true;
+                                try {
+                                    action.setValue(fields[0]);
+                                } finally {
+                                    updatingSelection[0] = false;
+                                }
                                 return;
                             }
                             replacementMessages.put(fields[1], replacement.get().strip());
                         } else {
                             replacementMessages.remove(fields[1]);
                         }
-                        commits.set(index, action.getValue() + line.substring(line.indexOf(' ')));
+                        commits.set(index, requestedAction + line.substring(line.indexOf(' ')));
                         commitList.getSelectionModel().select(index);
                     });
                     commitList.getSelectionModel().selectedItemProperty().addListener(
                             (observable, previous, selected) -> {
                                 if (selected != null) {
-                                    action.setValue(selected.substring(0, selected.indexOf(' ')));
+                                    updatingSelection[0] = true;
+                                    try {
+                                        action.setValue(selected.substring(0, selected.indexOf(' ')));
+                                    } finally {
+                                        updatingSelection[0] = false;
+                                    }
                                 }
                             });
                     Button editMessage = new Button("Edit Message");
