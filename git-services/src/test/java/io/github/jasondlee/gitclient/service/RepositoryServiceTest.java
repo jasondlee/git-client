@@ -22,6 +22,30 @@ class RepositoryServiceTest {
             throw new java.io.UncheckedIOException(ex);
         }
     }
+    @Test void stagesAndUnstagesIndividualHunks() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
+        StringBuilder initial = new StringBuilder();
+        for (int i = 0; i < 30; i++) initial.append("line ").append(i).append('\n');
+        Files.writeString(directory.resolve("tracked.txt"), initial.toString());
+        git("add", "tracked.txt");
+        git("commit", "-m", "initial");
+        String modified = initial.toString().replace("line 2\n", "changed 2\n")
+                .replace("line 25\n", "changed 25\n");
+        Files.writeString(directory.resolve("tracked.txt"), modified);
+        var service = new RepositoryService();
+        var hunks = service.diffHunks(directory, "tracked.txt", false);
+        assertEquals(2, hunks.size());
+        service.applyIndexHunk(directory, hunks.getFirst(), false);
+        assertEquals(1, service.diffHunks(directory, "tracked.txt", true).size());
+        assertEquals(1, service.diffHunks(directory, "tracked.txt", false).size());
+        service.applyIndexHunk(directory,
+                service.diffHunks(directory, "tracked.txt", true).getFirst(), true);
+        assertTrue(service.diffHunks(directory, "tracked.txt", true).isEmpty());
+        assertEquals(2, service.diffHunks(directory, "tracked.txt", false).size());
+    }
     @Test void createsFixupAndAutosquashesIntoTargetCommit() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
