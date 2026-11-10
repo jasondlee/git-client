@@ -32,11 +32,13 @@ public final class CommitGraphView extends VBox {
     private final Consumer<String> revert;
     private final Consumer<String> branchAt;
     private final Consumer<String> tagAt;
+    private final Consumer<String> compare;
     private int width = 1;
 
     public CommitGraphView(Consumer<String> openCommit, Consumer<String> copyCommit,
             Consumer<String> cherryPick, Consumer<String> revert,
-            Consumer<String> branchAt, Consumer<String> tagAt) {
+            Consumer<String> branchAt, Consumer<String> tagAt,
+            Consumer<String> compare) {
         super(6);
         this.openCommit = openCommit;
         this.copyCommit = copyCommit;
@@ -44,6 +46,7 @@ public final class CommitGraphView extends VBox {
         this.revert = revert;
         this.branchAt = branchAt;
         this.tagAt = tagAt;
+        this.compare = compare;
         search.setPromptText("Find commit by SHA, subject, or ref");
         search.textProperty().addListener((observable, oldValue, newValue) -> {
             updateMatches();
@@ -101,6 +104,8 @@ public final class CommitGraphView extends VBox {
                     inspect.setOnAction(event -> openCommit.accept(hash));
                     MenuItem copy = new MenuItem("Copy Commit Hash");
                     copy.setOnAction(event -> copyCommit.accept(hash));
+                    MenuItem diff = new MenuItem("Compare Commit to HEAD");
+                    diff.setOnAction(event -> compare.accept(hash));
                     MenuItem pick = new MenuItem("Cherry-pick Commit");
                     pick.setOnAction(event -> cherryPick.accept(hash));
                     MenuItem undo = new MenuItem("Revert Commit");
@@ -109,7 +114,7 @@ public final class CommitGraphView extends VBox {
                     createBranch.setOnAction(event -> branchAt.accept(hash));
                     MenuItem createTag = new MenuItem("Create Tag Here");
                     createTag.setOnAction(event -> tagAt.accept(hash));
-                    setContextMenu(new ContextMenu(inspect, copy,
+                    setContextMenu(new ContextMenu(inspect, copy, diff,
                             new SeparatorMenuItem(), pick, undo,
                             new SeparatorMenuItem(), createBranch, createTag));
                 }
