@@ -715,7 +715,7 @@ public final class RepositoryService {
             if (!tokens[0].equals("reword")) continue;
             String replacement = messages.get(tokens[1]);
             if (replacement == null || replacement.isBlank()
-                    || replacement.indexOf('\\0') >= 0) {
+                    || replacement.indexOf('\0') >= 0) {
                 throw new IllegalArgumentException("A nonempty replacement message is required for " + tokens[1]);
             }
             String originalMessage = new String(git.run(root, "log", "-1", "--format=%B",
