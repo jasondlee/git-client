@@ -788,6 +788,37 @@ public final class RepositoryService {
     public void continueRebase(Path directory) {
         git.run(findRepository(directory), "rebase", "--continue");
     }
+    /** Describe an in-progress rebase without modifying its state. */
+    public String rebaseProgress(Path directory) {
+        Path root = findRepository(directory);
+        Path gitDirectory = Path.of(new String(git.run(root, "rev-parse",
+                "--absolute-git-dir"), StandardCharsets.UTF_8).strip());
+        Path merge = gitDirectory.resolve("rebase-merge");
+        Path apply = gitDirectory.resolve("rebase-apply");
+        Path state = java.nio.file.Files.isDirectory(merge) ? merge : apply;
+        if (!java.nio.file.Files.isDirectory(state)) return "No rebase in progress.";
+        try {
+            String current = java.nio.file.Files.exists(state.resolve("msgnum"))
+                    ? java.nio.file.Files.readString(state.resolve("msgnum")).strip()
+                    : "?";
+            String total = java.nio.file.Files.exists(state.resolve("end"))
+                    ? java.nio.file.Files.readString(state.resolve("end")).strip()
+                    : "?";
+            String branch = java.nio.file.Files.exists(state.resolve("head-name"))
+                    ? java.nio.file.Files.readString(state.resolve("head-name")).strip()
+                    : "current branch";
+            List<String> conflicts = conflictedFiles(root);
+            return "Rebasing " + branch + " — step " + current + " of " + total
+                    + "\\n" + (conflicts.isEmpty()
+                    ? "No unresolved conflicts."
+                    : "Unresolved conflicts:\\n" + String.join("\\n", conflicts))
+                    + "\\nResolve and stage conflicts, then Continue Operation. "
+                    + "Alternatively Skip Rebase Commit or Abort Operation.";
+        } catch (java.io.IOException ex) {
+            throw new java.io.UncheckedIOException("Unable to inspect rebase progress", ex);
+        }
+    }
+
     public void skipRebase(Path directory) {
         git.run(findRepository(directory), "rebase", "--skip");
     }
