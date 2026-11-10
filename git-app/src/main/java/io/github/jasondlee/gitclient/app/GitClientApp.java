@@ -3,6 +3,9 @@ package io.github.jasondlee.gitclient.app;
 import io.github.jasondlee.gitclient.ui.WorkspaceView;
 import javafx.application.Application;
 import javafx.scene.Scene;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
 import javafx.scene.control.Button;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
@@ -30,7 +33,25 @@ public final class GitClientApp extends Application {
                 addRepositoryTab(Path.of(argument));
             }
         }
-        stage.setScene(new Scene(layout, 1100, 700));
+        Scene scene = new Scene(layout, 1100, 700);
+        scene.getAccelerators().put(
+                new KeyCodeCombination(KeyCode.T, KeyCombination.SHORTCUT_DOWN),
+                () -> addRepositoryTab(null));
+        scene.getAccelerators().put(
+                new KeyCodeCombination(KeyCode.W, KeyCombination.SHORTCUT_DOWN),
+                () -> {
+                    Tab selected = repositories.getSelectionModel().getSelectedItem();
+                    if (selected != null) repositories.getTabs().remove(selected);
+                    if (repositories.getTabs().isEmpty()) addRepositoryTab(null);
+                });
+        scene.getAccelerators().put(
+                new KeyCodeCombination(KeyCode.TAB, KeyCombination.CONTROL_DOWN),
+                () -> repositories.getSelectionModel().selectNext());
+        scene.getAccelerators().put(
+                new KeyCodeCombination(KeyCode.TAB, KeyCombination.CONTROL_DOWN,
+                        KeyCombination.SHIFT_DOWN),
+                () -> repositories.getSelectionModel().selectPrevious());
+        stage.setScene(scene);
         stage.show();
     }
 
