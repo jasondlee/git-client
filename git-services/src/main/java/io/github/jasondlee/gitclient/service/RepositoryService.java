@@ -701,6 +701,47 @@ public final class RepositoryService {
                     "Interactive rebase currently supports linear commit history only");
         }
         String original = interactiveRebasePlan(root, baseBranch);
+        String todo = validateInteractiveRebasePlan(original, plan);
+        Path editor = null;
+        Path instructions = null;
+        try {
+            editor = java.nio.file.Files.createTempFile("git-client-editor-", ".java");
+            instructions = java.nio.file.Files.createTempFile("git-client-rebase-", ".todo");
+            java.nio.file.Files.writeString(editor, """
+                    import java.nio.file.*;
+                    class GitClientSequenceEditor {
+                        public static void main(String[] args) throws Exception {
+                            Files.copy(Path.of(args[0]), Path.of(args[1]),
+                                    StandardCopyOption.REPLACE_EXISTING);
+                        }
+                    }
+                    """);
+            java.nio.file.Files.writeString(instructions, todo);
+            String command = "java \"" + editor.toString().replace('\\', '/')
+                    + "\" \"" + instructions.toString().replace('\\', '/') + "\"";
+            git.run(root, "-c", "sequence.editor=" + command,
+                    "-c", "core.editor=true", "rebase", "-i", baseBranch);
+        } catch (java.io.IOException ex) {
+            throw new java.io.UncheckedIOException("Unable to prepare rebase editor", ex);
+        } finally {
+            for (Path temporary : new Path[]{editor, instructions}) {
+                if (temporary != null) {
+                    try {
+                        java.nio.file.Files.deleteIfExists(temporary);
+                    } catch (java.io.IOException ignored) {
+                        temporary.toFile().deleteOnExit();
+                    }
+                }
+            }
+        }
+    }
+
+    /** Validate a proposed plan without changing the repository. */
+    public String validateInteractiveRebasePlan(Path directory, String baseBranch, String plan) {
+        return validateInteractiveRebasePlan(interactiveRebasePlan(directory, baseBranch), plan);
+    }
+
+    private static String validateInteractiveRebasePlan(String original, String plan) {
         java.util.Set<String> expected = new java.util.HashSet<>();
         for (String line : original.lines().filter(line -> !line.isBlank()).toList()) {
             expected.add(line.split(" ", 3)[1]);
@@ -726,38 +767,7 @@ public final class RepositoryService {
             throw new IllegalArgumentException("Plan must contain every original commit exactly once");
         }
         if (expected.isEmpty()) throw new IllegalArgumentException("No commits to rebase");
-        Path editor = null;
-        Path instructions = null;
-        try {
-            editor = java.nio.file.Files.createTempFile("git-client-editor-", ".java");
-            instructions = java.nio.file.Files.createTempFile("git-client-rebase-", ".todo");
-            java.nio.file.Files.writeString(editor, """
-                    import java.nio.file.*;
-                    class GitClientSequenceEditor {
-                        public static void main(String[] args) throws Exception {
-                            Files.copy(Path.of(args[0]), Path.of(args[1]),
-                                    StandardCopyOption.REPLACE_EXISTING);
-                        }
-                    }
-                    """);
-            java.nio.file.Files.writeString(instructions, todo.toString());
-            String command = "java \"" + editor.toString().replace('\\', '/')
-                    + "\" \"" + instructions.toString().replace('\\', '/') + "\"";
-            git.run(root, "-c", "sequence.editor=" + command,
-                    "-c", "core.editor=true", "rebase", "-i", baseBranch);
-        } catch (java.io.IOException ex) {
-            throw new java.io.UncheckedIOException("Unable to prepare rebase editor", ex);
-        } finally {
-            for (Path temporary : new Path[]{editor, instructions}) {
-                if (temporary != null) {
-                    try {
-                        java.nio.file.Files.deleteIfExists(temporary);
-                    } catch (java.io.IOException ignored) {
-                        temporary.toFile().deleteOnExit();
-                    }
-                }
-            }
-        }
+        return todo.toString();
     }
 
     public void rebaseAutosquash(Path directory, String baseBranch) {
