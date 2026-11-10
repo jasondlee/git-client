@@ -554,6 +554,27 @@ public final class WorkspaceView extends BorderPane {
             });
         });
         Button submodules = new Button("Submodules");
+        Button addSubmodule = new Button("Add Submodule");
+        addSubmodule.setOnAction(e -> {
+            if (repository == null) return;
+            TextInputDialog urlDialog = new TextInputDialog();
+            urlDialog.setTitle("Add Submodule");
+            urlDialog.setHeaderText("Enter the submodule repository URL");
+            urlDialog.setContentText("Repository URL:");
+            urlDialog.showAndWait().map(String::strip).filter(url -> !url.isEmpty())
+                    .ifPresent(url -> {
+                        TextInputDialog pathDialog = new TextInputDialog("vendor/module");
+                        pathDialog.setTitle("Add Submodule");
+                        pathDialog.setHeaderText("Choose a new repository-relative destination");
+                        pathDialog.setContentText("Destination:");
+                        pathDialog.showAndWait().map(String::strip).filter(path -> !path.isEmpty())
+                                .ifPresent(path -> {
+                                    Path current = repository;
+                                    confirmOperation("Add submodule '" + url + "' at '" + path + "'?",
+                                            () -> repositories.addSubmodule(current, url, path));
+                                });
+                    });
+        });
         Button updateSubmodules = new Button("Update Submodules");
         Button syncSubmodules = new Button("Sync Submodule URLs");
         syncSubmodules.setOnAction(e -> {
@@ -739,7 +760,7 @@ public final class WorkspaceView extends BorderPane {
                 removeRemote, remoteDetails);
         MenuButton advancedMenu = actionsMenu("Advanced", exportPatch, applyPatch,
                 configView, configEdit, hooks, lfsFiles, lfsTrack, lfsUntrack,
-                worktrees, addWorktree, newBranchWorktree, removeWorktree, pruneWorktrees, submodules,
+                worktrees, addWorktree, newBranchWorktree, removeWorktree, pruneWorktrees, submodules, addSubmodule,
                 updateSubmodules, syncSubmodules, createTag, annotatedTag, deleteTag, stash, applyStash, dropStash);
         ToolBar toolbar = new ToolBar(open, recentRepositories, initialize, clone, refresh, stage, unstage, stageHunk, unstageHunk, stageLines, unstageLines,
                 discard, clean, ignore,
