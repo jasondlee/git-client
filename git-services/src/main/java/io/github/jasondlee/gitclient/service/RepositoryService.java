@@ -668,6 +668,94 @@ public final class RepositoryService {
         return new String(git.run(root, "rev-parse", "HEAD"),
                 StandardCharsets.UTF_8).strip();
     }
+    /** Generate a rebase todo list for commits unique to the current branch. */
+    public String interactiveRebasePlan(Path directory, String baseBranch) {
+        validateBranchName(baseBranch);
+        if (!branches(directory).contains(baseBranch)) {
+            throw new IllegalArgumentException("Unknown local branch: " + baseBranch);
+        }
+        Path root = findRepository(directory);
+        return new String(git.run(root, "log", "--reverse", "--format=pick %H %s",
+                baseBranch + "..HEAD"), StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Apply a validated interactive rebase plan. Every original commit must occur
+     * exactly once, with an action of pick, reword, edit, squash, fixup, or drop.
+     * The editor is a temporary Java source-file program, avoiding shell-specific
+     * sed scripts and external scripting dependencies.
+     */
+    public void interactiveRebase(Path directory, String baseBranch, String plan) {
+        validateBranchName(baseBranch);
+        Path root = findRepository(directory);
+        if (!branches(root).contains(baseBranch)) {
+            throw new IllegalArgumentException("Unknown local branch: " + baseBranch);
+        }
+        if (!new String(git.run(root, "status", "--porcelain"),
+                StandardCharsets.UTF_8).isBlank()) {
+            throw new IllegalStateException("Commit or stash working tree changes before rebasing");
+        }
+        String original = interactiveRebasePlan(root, baseBranch);
+        java.util.Set<String> expected = new java.util.HashSet<>();
+        for (String line : original.lines().filter(line -> !line.isBlank()).toList()) {
+            expected.add(line.split(" ", 3)[1]);
+        }
+        java.util.Set<String> seen = new java.util.HashSet<>();
+        StringBuilder todo = new StringBuilder();
+        boolean hasPriorCommit = false;
+        for (String line : Objects.requireNonNull(plan, "plan").lines().toList()) {
+            if (line.isBlank() || line.stripLeading().startsWith("#")) continue;
+            String[] parts = line.strip().split("\\s+", 3);
+            if (parts.length < 2 || !List.of("pick", "reword", "edit", "squash",
+                    "fixup", "drop").contains(parts[0]) || !expected.contains(parts[1])
+                    || !seen.add(parts[1])) {
+                throw new IllegalArgumentException("Invalid rebase action or commit: " + line);
+            }
+            if ((parts[0].equals("squash") || parts[0].equals("fixup"))
+                    && !hasPriorCommit) {
+                throw new IllegalArgumentException("Squash and fixup require a preceding commit");
+            }
+            if (!parts[0].equals("drop")) hasPriorCommit = true;
+            todo.append(parts[0]).append(' ').append(parts[1]).append('\n');
+        }
+        if (!seen.equals(expected)) {
+            throw new IllegalArgumentException("Plan must contain every original commit exactly once");
+        }
+        if (expected.isEmpty()) throw new IllegalArgumentException("No commits to rebase");
+        Path editor = null;
+        Path instructions = null;
+        try {
+            editor = java.nio.file.Files.createTempFile("git-client-editor-", ".java");
+            instructions = java.nio.file.Files.createTempFile("git-client-rebase-", ".todo");
+            java.nio.file.Files.writeString(editor, """
+                    import java.nio.file.*;
+                    class GitClientSequenceEditor {
+                        public static void main(String[] args) throws Exception {
+                            Files.copy(Path.of(args[0]), Path.of(args[1]),
+                                    StandardCopyOption.REPLACE_EXISTING);
+                        }
+                    }
+                    """);
+            java.nio.file.Files.writeString(instructions, todo.toString());
+            String command = "java \"" + editor.toString().replace('\\', '/')
+                    + "\" \"" + instructions.toString().replace('\\', '/') + "\"";
+            git.run(root, "-c", "sequence.editor=" + command,
+                    "-c", "core.editor=true", "rebase", "-i", baseBranch);
+        } catch (java.io.IOException ex) {
+            throw new java.io.UncheckedIOException("Unable to prepare rebase editor", ex);
+        } finally {
+            for (Path temporary : new Path[]{editor, instructions}) {
+                if (temporary != null) {
+                    try {
+                        java.nio.file.Files.deleteIfExists(temporary);
+                    } catch (java.io.IOException ignored) {
+                        temporary.toFile().deleteOnExit();
+                    }
+                }
+            }
+        }
+    }
+
     public void rebaseAutosquash(Path directory, String baseBranch) {
         validateBranchName(baseBranch);
         if (!branches(directory).contains(baseBranch)) {
