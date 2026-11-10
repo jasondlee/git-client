@@ -30,11 +30,14 @@ public final class WorkspaceView extends BorderPane {
     private final Button commitButton = new Button("Commit Staged");
     private final CheckBox amend = new CheckBox("Amend last commit");
     private final SimpleBooleanProperty operationRunning = new SimpleBooleanProperty(false);
+    private final java.util.prefs.Preferences preferences = java.util.prefs.Preferences.userNodeForPackage(WorkspaceView.class);
+    private final MenuButton recentRepositories = new MenuButton("Recent");
     private Path repository;
     private long refreshGeneration;
 
     public WorkspaceView() {
         Button open = new Button("Open Repository");
+        updateRecentRepositories();
         Button initialize = new Button("Initialize...");
         Button clone = new Button("Clone...");
         initialize.setOnAction(e -> initializeRepository());
@@ -540,7 +543,7 @@ public final class WorkspaceView extends BorderPane {
         MenuButton advancedMenu = actionsMenu("Advanced", exportPatch, applyPatch,
                 configView, configEdit, worktrees, addWorktree, removeWorktree, submodules,
                 updateSubmodules, createTag, annotatedTag, deleteTag, stash, applyStash, dropStash);
-        ToolBar toolbar = new ToolBar(open, initialize, clone, refresh, stage, unstage, stageHunk, unstageHunk,
+        ToolBar toolbar = new ToolBar(open, recentRepositories, initialize, clone, refresh, stage, unstage, stageHunk, unstageHunk,
                 discard, ignore,
                 new Separator(), branchSelector, branchesMenu,
                 new Separator(), historyMenu, operationsMenu, advancedMenu,
@@ -939,14 +942,39 @@ public final class WorkspaceView extends BorderPane {
             });
         });
     }
+    private void selectRepository(Path path) {
+        repository = path.toAbsolutePath().normalize();
+        location.setText(repository.toString());
+        refresh();
+    }
+    private void rememberRepository(Path root) {
+        String value = root.toAbsolutePath().normalize().toString();
+        java.util.List<String> recent = new java.util.ArrayList<>();
+        recent.add(value);
+        for (String entry : preferences.get("recentRepositories", "").split("\\n")) {
+            if (!entry.isBlank() && !entry.equals(value) && recent.size() < 10) {
+                recent.add(entry);
+            }
+        }
+        preferences.put("recentRepositories", String.join("\n", recent));
+        updateRecentRepositories();
+    }
+    private void updateRecentRepositories() {
+        recentRepositories.getItems().clear();
+        for (String entry : preferences.get("recentRepositories", "").split("\\n")) {
+            if (entry.isBlank()) continue;
+            MenuItem item = new MenuItem(entry);
+            item.setOnAction(e -> selectRepository(Path.of(entry)));
+            recentRepositories.getItems().add(item);
+        }
+        recentRepositories.setDisable(recentRepositories.getItems().isEmpty());
+    }
     private void openRepository() {
         DirectoryChooser chooser = new DirectoryChooser();
         chooser.setTitle("Open Git repository");
         java.io.File chosen = chooser.showDialog(getScene().getWindow());
         if (chosen == null) return;
-        repository = chosen.toPath();
-        location.setText(repository.toString());
-        refresh();
+        selectRepository(chosen.toPath());
     }
     private void refresh() {
         Path current = repository;
