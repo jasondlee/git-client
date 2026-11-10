@@ -29,7 +29,7 @@ jobs:
         run: mvn --batch-mode --no-transfer-progress install
       - name: Install Linux packaging prerequisites
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y fakeroot dpkg-dev rpm
+        run: sudo apt-get update && sudo apt-get install -y fakeroot dpkg-dev rpm xvfb libgtk-3-0
       - name: Install Windows packaging prerequisites
         if: runner.os == 'Windows'
         shell: pwsh
@@ -98,6 +98,22 @@ jobs:
           else
             test -x dist/GitClient/bin/GitClient
           fi
+      - name: Smoke-test packaged Linux launcher
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          set -euo pipefail
+          xvfb-run -a bash -c '
+            dist/GitClient/bin/GitClient > /tmp/gitclient-launch.log 2>&1 &
+            pid=$!
+            trap "kill $pid 2>/dev/null || true" EXIT
+            sleep 12
+            if ! kill -0 "$pid" 2>/dev/null; then
+              cat /tmp/gitclient-launch.log
+              echo "Packaged JavaFX application exited unexpectedly"
+              exit 1
+            fi
+          '
       - name: Archive Linux application bundle
         if: runner.os == 'Linux'
         shell: bash
@@ -117,7 +133,7 @@ jobs:
           path: installers/*
           if-no-files-found: error
       - name: Upload platform bundle
-        uses: actions/upload-artifact@v7.0.2
+        uses: actions/upload-artifact@v4
         with:
           name: GitClient-${{ runner.os }}
           path: GitClient-*
