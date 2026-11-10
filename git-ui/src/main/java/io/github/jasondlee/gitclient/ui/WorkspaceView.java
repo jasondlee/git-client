@@ -58,8 +58,10 @@ public final class WorkspaceView extends BorderPane {
         Button refresh = new Button("Refresh");
         Button settings = new Button("Preferences");
         settings.setOnAction(event -> showPreferences());
+        settings.setTooltip(new Tooltip("Configure history and diff display"));
         Button shortcuts = new Button("Shortcuts");
         shortcuts.setOnAction(event -> showShortcuts());
+        shortcuts.setTooltip(new Tooltip("View keyboard navigation shortcuts"));
         open.setOnAction(e -> openRepository());
         refresh.setOnAction(e -> refresh());
         Button clean = new Button("Clean Untracked");
@@ -649,6 +651,7 @@ public final class WorkspaceView extends BorderPane {
                 new Separator(), remoteSelector, remoteMenu, fetch, pull, push,
                 new Separator(), settings, shortcuts, branch, location);
         setTop(toolbar);
+        activity.setAccessibleText("Git operation in progress");
         activity.setPrefSize(18, 18);
         activity.setMaxSize(18, 18);
         activity.visibleProperty().bind(loading.or(operationRunning));
@@ -663,6 +666,10 @@ public final class WorkspaceView extends BorderPane {
         diffPreview.setAccessibleText("Diff and commit details");
         commitMessage.setAccessibleText("Commit message editor");
         refresh.disableProperty().bind(loading.or(operationRunning));
+        open.setTooltip(new Tooltip("Open repository (Shortcut+O)"));
+        refresh.setTooltip(new Tooltip("Reload repository (Shortcut+R)"));
+        commitButton.setTooltip(new Tooltip("Commit staged changes (Shortcut+Enter)"));
+        commitButton.setAccessibleText("Commit staged changes");
         sceneProperty().addListener((obs, oldScene, scene) -> {
             if (scene == null) return;
             scene.getAccelerators().put(new KeyCodeCombination(KeyCode.O,
