@@ -47,6 +47,9 @@ public final class WorkspaceView extends BorderPane {
     private final MenuButton recentRepositories = new MenuButton("Recent");
     private Path repository;
     private long refreshGeneration;
+    private final Button loadMoreHistory = new Button("Load More Commits");
+    private boolean historyPageLoading;
+    private boolean historyHasMore = true;
 
     public WorkspaceView() {
         Button open = new Button("Open Repository");
@@ -768,7 +771,10 @@ public final class WorkspaceView extends BorderPane {
                     || commit.subject().toLowerCase(java.util.Locale.ROOT).contains(needle)
                     || commit.author().toLowerCase(java.util.Locale.ROOT).contains(needle));
         });
-        VBox recentHistory = new VBox(6, historySearch, history);
+        loadMoreHistory.setOnAction(event -> loadNextHistoryPage());
+        loadMoreHistory.setAccessibleText("Load the next page of commit history");
+        loadMoreHistory.setDisable(true);
+        VBox recentHistory = new VBox(6, historySearch, history, loadMoreHistory);
         VBox.setVgrow(history, Priority.ALWAYS);
         Tab recentTab = new Tab("Recent commits", recentHistory);
         Tab graphTab = new Tab("Branch graph", commitGraph);
@@ -1964,6 +1970,37 @@ public final class WorkspaceView extends BorderPane {
         });
     }
 
+    private void loadNextHistoryPage() {
+        if (repository == null || historyPageLoading || !historyHasMore) return;
+        Path current = repository;
+        long generation = refreshGeneration;
+        int offset = historySource.size();
+        int pageSize = Math.min(1000, Math.max(1, preferences.getInt("history.limit", 100)));
+        historyPageLoading = true;
+        loadMoreHistory.setDisable(true);
+        message.setText("Loading commits " + (offset + 1) + " onward...");
+        Thread.startVirtualThread(() -> {
+            try {
+                var next = repositories.historyPage(current, offset, pageSize);
+                Platform.runLater(() -> {
+                    if (generation != refreshGeneration || !current.equals(repository)) return;
+                    historyPageLoading = false;
+                    historyHasMore = next.size() == pageSize;
+                    historySource.addAll(next);
+                    loadMoreHistory.setDisable(!historyHasMore);
+                    message.setText(historySource.size() + " commits loaded");
+                });
+            } catch (Exception ex) {
+                Platform.runLater(() -> {
+                    if (generation != refreshGeneration) return;
+                    historyPageLoading = false;
+                    loadMoreHistory.setDisable(false);
+                    message.setText("More commits: " + ex.getMessage());
+                });
+            }
+        });
+    }
+
     private void refresh() {
         Path current = repository;
         if (current == null) return;
@@ -2000,6 +2037,10 @@ public final class WorkspaceView extends BorderPane {
                     String selectedCommit = history.getSelectionModel().getSelectedItem() == null
                             ? null : history.getSelectionModel().getSelectedItem().id();
                     historySource.setAll(commits);
+                    historyPageLoading = false;
+                    historyHasMore = commits.size() == Math.min(1000,
+                            Math.max(1, preferences.getInt("history.limit", 100)));
+                    loadMoreHistory.setDisable(!historyHasMore);
                     if (selectedCommit != null) {
                         historySource.stream().filter(commit -> commit.id().equals(selectedCommit))
                                 .findFirst().ifPresent(commit ->
