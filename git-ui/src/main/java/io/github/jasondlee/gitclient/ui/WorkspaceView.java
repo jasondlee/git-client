@@ -974,8 +974,10 @@ public final class WorkspaceView extends BorderPane {
                             ButtonBar.ButtonData.OTHER);
                     ButtonType abort = new ButtonType("Abort Rebase",
                             ButtonBar.ButtonData.OTHER);
+                    ButtonType reload = new ButtonType("Refresh",
+                            ButtonBar.ButtonData.OTHER);
                     dialog.getDialogPane().getButtonTypes().addAll(
-                            resolve, resume, skip, abort, ButtonType.CANCEL);
+                            resolve, resume, skip, abort, reload, ButtonType.CANCEL);
                     boolean active = !progress.startsWith("No rebase in progress.");
                     dialog.getDialogPane().lookupButton(resolve)
                             .setDisable(!active || conflicts.isEmpty());
@@ -983,6 +985,34 @@ public final class WorkspaceView extends BorderPane {
                             .setDisable(!active || !conflicts.isEmpty());
                     dialog.getDialogPane().lookupButton(skip).setDisable(!active);
                     dialog.getDialogPane().lookupButton(abort).setDisable(!active);
+                    dialog.getDialogPane().lookupButton(reload).addEventFilter(
+                            javafx.event.ActionEvent.ACTION, event -> {
+                                event.consume();
+                                Thread.startVirtualThread(() -> {
+                                    try {
+                                        String updated = repositories.rebaseProgress(current);
+                                        java.util.List<String> pending = repositories.conflictedFiles(current);
+                                        Platform.runLater(() -> {
+                                            details.setText(updated);
+                                            files.getItems().setAll(pending);
+                                            if (!pending.isEmpty()) files.getSelectionModel().selectFirst();
+                                            fileLabel.setText(pending.isEmpty()
+                                                    ? "No unresolved files."
+                                                    : pending.size() + " unresolved file(s). Select one to resolve.");
+                                            boolean running = !updated.startsWith("No rebase in progress.");
+                                            dialog.getDialogPane().lookupButton(resolve)
+                                                    .setDisable(!running || pending.isEmpty());
+                                            dialog.getDialogPane().lookupButton(resume)
+                                                    .setDisable(!running || !pending.isEmpty());
+                                            dialog.getDialogPane().lookupButton(skip).setDisable(!running);
+                                            dialog.getDialogPane().lookupButton(abort).setDisable(!running);
+                                        });
+                                    } catch (Exception ex) {
+                                        Platform.runLater(() -> message.setText(
+                                                "Rebase refresh: " + ex.getMessage()));
+                                    }
+                                });
+                            });
                     dialog.setResultConverter(button -> {
                         if (button == resolve) return "resolve";
                         if (button == resume) return "continue";
