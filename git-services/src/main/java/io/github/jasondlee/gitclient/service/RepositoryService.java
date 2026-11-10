@@ -804,6 +804,15 @@ public final class RepositoryService {
         }
         git.run(findRepository(directory), "worktree", "add", destination.toString(), branchName);
     }
+    public void addWorktreeWithNewBranch(Path directory, Path destination, String newBranch) {
+        validateBranchName(newBranch);
+        if (destination == null || !destination.isAbsolute()
+                || java.nio.file.Files.exists(destination)) {
+            throw new IllegalArgumentException("Worktree destination must be a new absolute path");
+        }
+        git.run(findRepository(directory), "worktree", "add", "-b", newBranch,
+                destination.toString(), "HEAD");
+    }
     public void removeWorktree(Path directory, Path destination) {
         if (destination == null || !destination.isAbsolute()) {
             throw new IllegalArgumentException("Worktree destination must be absolute");
