@@ -109,8 +109,18 @@ public final class CommitGraphView extends VBox {
         list.setOnKeyPressed(event -> {
             if (event.getCode() == javafx.scene.input.KeyCode.ENTER) openSelected();
         });
+        Button previous = new Button("Previous match");
+        Button next = new Button("Next match");
+        previous.setOnAction(event -> selectMatch(-1));
+        next.setOnAction(event -> selectMatch(1));
+        search.setOnAction(event -> selectMatch(1));
+        list.setOnKeyPressed(event -> {
+            if (event.getCode() == javafx.scene.input.KeyCode.ENTER) openSelected();
+            if (event.getCode() == javafx.scene.input.KeyCode.F
+                    && event.isShortcutDown()) focusSearch();
+        });
         VBox.setVgrow(list, Priority.ALWAYS);
-        getChildren().addAll(search, matches, list);
+        getChildren().addAll(search, new HBox(8, matches, previous, next), list);
     }
 
     public void setGraph(String graph) {
@@ -123,6 +133,22 @@ public final class CommitGraphView extends VBox {
 
     public void focusSearch() {
         search.requestFocus();
+    }
+
+    private void selectMatch(int direction) {
+        if (lines.isEmpty()) return;
+        String needle = search.getText().strip().toLowerCase(Locale.ROOT);
+        int current = list.getSelectionModel().getSelectedIndex();
+        for (int offset = 1; offset <= lines.size(); offset++) {
+            int index = Math.floorMod(current + direction * offset, lines.size());
+            GraphLine line = lines.get(index);
+            if (line.hash() != null && (needle.isEmpty()
+                    || line.description().toLowerCase(Locale.ROOT).contains(needle))) {
+                list.getSelectionModel().select(index);
+                list.scrollTo(index);
+                return;
+            }
+        }
     }
 
     private void openSelected() {
