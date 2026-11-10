@@ -20,6 +20,30 @@ mvn -pl git-app javafx:run
 
 The application can open multiple repositories in tabs. Repository paths may be passed as command-line arguments, and previously open tabs are restored when no paths are specified.
 
+## Advanced Git and history navigation
+
+The **History** menu supports commit-message search, tracked-filename search,
+file history across renames, and comparisons between two branches, tags, or
+commits. The recent-commits tab loads history in pages; use **Load More Commits**
+to retrieve older entries without loading the entire repository history.
+The file-history inspector also supports **Load More File Commits**, commit
+selection, patch preview, and in-patch search. Diff, blame, and text-report
+views provide case-insensitive Find Next navigation.
+
+The **Advanced** menu includes linked worktree creation/removal, creation of a
+new branch and linked worktree from HEAD, stale-worktree pruning, submodule
+update and URL synchronization, and Git LFS pattern tracking/untracking.
+Git LFS operations require the separate `git-lfs` executable to be installed.
+
+Conflict resolution supports text-based three-way editing, accepting a
+deletion, and choosing the original Git stage for binary conflicts. The
+binary detector checks for NUL, control bytes, and invalid UTF-8; some
+binary formats may still require an external tool. Changes are staged only
+after confirmation. Git operations launched through the shared operation
+controller can be interrupted with **Cancel Running Operation**. Cancellation
+may leave partial work (especially during cloning or network operations);
+inspect repository status afterward.
+
 ## Native packaging
 
 The [packaging workflow](.github/workflows/package.yml) builds self-contained
