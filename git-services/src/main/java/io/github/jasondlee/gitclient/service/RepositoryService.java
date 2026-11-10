@@ -872,10 +872,10 @@ public final class RepositoryService {
                     : "current branch";
             List<String> conflicts = conflictedFiles(root);
             return "Rebasing " + branch + " — step " + current + " of " + total
-                    + "\\n" + (conflicts.isEmpty()
+                    + "\n" + (conflicts.isEmpty()
                     ? "No unresolved conflicts."
-                    : "Unresolved conflicts:\\n" + String.join("\\n", conflicts))
-                    + "\\nResolve and stage conflicts, then Continue Operation. "
+                    : "Unresolved conflicts:\n" + String.join("\n", conflicts))
+                    + "\nResolve and stage conflicts, then Continue Operation. "
                     + "Alternatively Skip Rebase Commit or Abort Operation.";
         } catch (java.io.IOException ex) {
             throw new java.io.UncheckedIOException("Unable to inspect rebase progress", ex);
