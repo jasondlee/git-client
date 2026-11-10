@@ -651,8 +651,8 @@ public final class WorkspaceView extends BorderPane {
         setTop(toolbar);
         activity.setPrefSize(18, 18);
         activity.setMaxSize(18, 18);
-        activity.visibleProperty().bind(loading);
-        activity.managedProperty().bind(loading);
+        activity.visibleProperty().bind(loading.or(operationRunning));
+        activity.managedProperty().bind(loading.or(operationRunning));
         toolbar.getItems().add(activity);
         location.setAccessibleText("Repository location");
         branch.setAccessibleText("Current branch");
@@ -662,7 +662,7 @@ public final class WorkspaceView extends BorderPane {
         history.setAccessibleText("Recent commits");
         diffPreview.setAccessibleText("Diff and commit details");
         commitMessage.setAccessibleText("Commit message editor");
-        refresh.disableProperty().bind(loading);
+        refresh.disableProperty().bind(loading.or(operationRunning));
         sceneProperty().addListener((obs, oldScene, scene) -> {
             if (scene == null) return;
             scene.getAccelerators().put(new KeyCodeCombination(KeyCode.O,
@@ -922,16 +922,43 @@ public final class WorkspaceView extends BorderPane {
         runBranchAction(() -> repositories.switchBranch(repository, name));
     }
     private void runBranchAction(Runnable action) {
-        message.setText("Updating branch...");
+        if (operationRunning.get()) {
+            message.setText("Another Git operation is already running.");
+            return;
+        }
+        operationRunning.set(true);
+        message.setText("Running Git operation...");
         Thread.startVirtualThread(() -> {
             try {
                 action.run();
-                Platform.runLater(this::refresh);
+                Platform.runLater(() -> {
+                    operationRunning.set(false);
+                    refresh();
+                });
             } catch (Exception ex) {
-                Platform.runLater(() -> message.setText("Branch error: " + ex.getMessage()));
+                Platform.runLater(() -> {
+                    operationRunning.set(false);
+                    showOperationError("Git operation failed", ex);
+                });
             }
         });
     }
+
+    private void showOperationError(String title, Exception error) {
+        String detail = error.getMessage() == null ? error.toString() : error.getMessage();
+        message.setText(title + ": " + detail);
+        Alert dialog = new Alert(Alert.AlertType.ERROR);
+        dialog.setTitle(title);
+        dialog.setHeaderText("The operation could not be completed");
+        TextArea details = new TextArea(detail);
+        details.setEditable(false);
+        details.setWrapText(true);
+        details.setPrefSize(650, 200);
+        details.setAccessibleText("Git error details");
+        dialog.getDialogPane().setContent(details);
+        dialog.show();
+    }
+
     private void loadDiff() {
         if (diffTabs.getSelectionModel().getSelectedIndex() == 2) {
             loadCommitDetails();
