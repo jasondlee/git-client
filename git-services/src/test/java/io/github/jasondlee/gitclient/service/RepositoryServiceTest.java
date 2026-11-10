@@ -22,6 +22,30 @@ class RepositoryServiceTest {
             throw new java.io.UncheckedIOException(ex);
         }
     }
+    @Test void interactiveRebaseSquashesCommits() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
+        Files.writeString(directory.resolve("base.txt"), "base\n");
+        git("add", ".");
+        git("commit", "-m", "base");
+        git("branch", "base");
+        Files.writeString(directory.resolve("first.txt"), "first\n");
+        git("add", ".");
+        git("commit", "-m", "first");
+        Files.writeString(directory.resolve("second.txt"), "second\n");
+        git("add", ".");
+        git("commit", "-m", "second");
+        var service = new RepositoryService();
+        var lines = service.interactiveRebasePlan(directory, "base").lines().toList();
+        service.interactiveRebase(directory, "base",
+                lines.get(0) + "\n" + lines.get(1).replaceFirst("^pick ", "fixup ") + "\n");
+        assertEquals(1, service.interactiveRebasePlan(directory, "base").lines().count());
+        assertTrue(Files.exists(directory.resolve("first.txt")));
+        assertTrue(Files.exists(directory.resolve("second.txt")));
+    }
+
     @Test void interactiveRebaseCanReorderAndDropCommits() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
