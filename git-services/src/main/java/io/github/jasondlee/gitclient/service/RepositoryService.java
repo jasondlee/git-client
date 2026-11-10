@@ -492,7 +492,8 @@ public final class RepositoryService {
         if (!branches(directory).contains(baseBranch)) {
             throw new IllegalArgumentException("Unknown local branch: " + baseBranch);
         }
-        git.run(findRepository(directory), "rebase", "--autosquash", baseBranch);
+        git.run(findRepository(directory), "-c", "sequence.editor=true",
+                "rebase", "--interactive", "--autosquash", baseBranch);
     }
     public void rebase(Path directory, String branchName) {
         validateBranchName(branchName);
