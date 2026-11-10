@@ -449,6 +449,24 @@ public final class RepositoryService {
         return new String(git.run(root, "show", ":" + stage + ":" + path),
                 StandardCharsets.UTF_8);
     }
+    /** Read a conflict stage when present; absent stages are common in add/delete conflicts. */
+    public String conflictVersionOrEmpty(Path directory, String path, int stage) {
+        if (stage < 1 || stage > 3) {
+            throw new IllegalArgumentException("Conflict stage must be 1, 2 or 3");
+        }
+        Path root = findRepository(directory);
+        validateRepositoryPath(root, path);
+        if (!conflictedFiles(root).contains(path)) {
+            throw new IllegalArgumentException("File is not currently conflicted: " + path);
+        }
+        String stages = new String(git.run(root, "ls-files", "--unmerged", "--", path),
+                StandardCharsets.UTF_8);
+        boolean present = stages.lines().anyMatch(line -> {
+            int tab = line.indexOf('\t');
+            return tab >= 0 && line.substring(0, tab).endsWith(" " + stage);
+        });
+        return present ? conflictVersion(root, path, stage) : "";
+    }
     public void resolveConflict(Path directory, String path, String contents) {
         Path root = findRepository(directory);
         validateRepositoryPath(root, path);
