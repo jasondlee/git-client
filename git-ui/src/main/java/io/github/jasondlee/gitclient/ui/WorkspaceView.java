@@ -1915,16 +1915,9 @@ public final class WorkspaceView extends BorderPane {
         folderDialog.setHeaderText("New folder name");
         folderDialog.setContentText("Folder:");
         folderDialog.showAndWait().ifPresent(folder -> {
-            Thread.startVirtualThread(() -> {
-                try {
-                    Path root = repositories.cloneRepository(parent.toPath(), url.get(), folder);
-                    Platform.runLater(() -> {
-                        repository = root;
-                        refresh();
-                    });
-                } catch (Exception ex) {
-                    Platform.runLater(() -> message.setText("Clone failed: " + ex.getMessage()));
-                }
+            runBranchAction(() -> {
+                Path root = repositories.cloneRepository(parent.toPath(), url.get(), folder);
+                Platform.runLater(() -> repository = root);
             });
         });
     }
