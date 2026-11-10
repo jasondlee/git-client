@@ -22,6 +22,26 @@ class RepositoryServiceTest {
             throw new java.io.UncheckedIOException(ex);
         }
     }
+    @Test void detectsBinaryConflictWithInvalidUtf8AndNoNul() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        Files.write(directory.resolve("data.bin"), new byte[] {(byte) 0xff, 1, 2});
+        git("add", ".");
+        git("commit", "-m", "base");
+        git("branch", "feature");
+        Files.write(directory.resolve("data.bin"), new byte[] {(byte) 0xff, 3, 4});
+        git("add", ".");
+        git("commit", "-m", "master");
+        git("checkout", "feature");
+        Files.write(directory.resolve("data.bin"), new byte[] {(byte) 0xff, 5, 6});
+        git("add", ".");
+        git("commit", "-m", "feature");
+        var service = new RepositoryService();
+        assertThrows(RuntimeException.class, () -> service.merge(directory, "master"));
+        assertTrue(service.binaryConflict(directory, "data.bin"));
+    }
+
     @Test void resolvesBinaryConflictWithoutChangingSelectedBytes() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
