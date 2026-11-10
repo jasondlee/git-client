@@ -771,9 +771,9 @@ public final class RepositoryService {
             for (var entry : subjects.entrySet()) {
                 mapping.append(Base64.getEncoder().encodeToString(
                         entry.getKey().getBytes(StandardCharsets.UTF_8)))
-                        .append('\\t').append(Base64.getEncoder().encodeToString(
+                        .append('\t').append(Base64.getEncoder().encodeToString(
                                 entry.getValue().getBytes(StandardCharsets.UTF_8)))
-                        .append('\\n');
+                        .append('\n');
             }
             java.nio.file.Files.writeString(messageMap, mapping.toString());
             String javaEditor = "java \"" + editor.toString().replace('\\', '/')
