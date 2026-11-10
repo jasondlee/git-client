@@ -39,6 +39,22 @@ GitHub Actions provides two separate workflows:
 
 Packaging has not yet been verified on every runner. These application bundles are not signed or notarized, and are not yet MSI, DMG, or DEB installers. Do not treat them as production releases until packaging and launch smoke tests pass on each OS.
 
+## Commit history and graph
+
+The main workspace has **Recent commits** and **Branch graph** tabs. Recent
+commits can be filtered by commit SHA, subject, or author. The branch graph
+displays all refs, including merge and branch connections, with native JavaFX
+drawing; it retains connector rows during search so topology stays visible.
+Use **Previous match** and **Next match** or Enter in the search field to
+navigate matching commits. Double-click a graph commit or press Enter on its
+row to inspect it. The toolbar's **Commit Graph** command opens a larger
+graph view.
+
+Right-click a commit in either history view to inspect it, copy its full SHA,
+cherry-pick or revert it, or create a branch or tag pointing at that commit.
+History operations that change repository state require confirmation. The
+graph currently loads the most recent 500 commits across all refs.
+
 ## Interactive rebase
 
 Choose a **base branch** from the branch selector and select **Interactive Rebase**
