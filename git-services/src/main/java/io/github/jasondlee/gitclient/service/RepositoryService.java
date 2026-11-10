@@ -1081,10 +1081,17 @@ public final class RepositoryService {
                 StandardCharsets.UTF_8);
     }
     public List<CommitInfo> history(Path directory, int count) {
+        return historyPage(directory, 0, count);
+    }
+
+    /** Load a bounded window of commit history without materializing the full log. */
+    public List<CommitInfo> historyPage(Path directory, int offset, int count) {
+        if (offset < 0) throw new IllegalArgumentException("History offset must be nonnegative");
         if (count <= 0) return List.of();
+        if (count > 1000) throw new IllegalArgumentException("History page size exceeds 1000");
         String status = new String(git.run(directory, "status", "--porcelain=v2", "--branch", "-z"), StandardCharsets.UTF_8);
         if (status.startsWith("# branch.oid (initial)\u0000") || status.contains("\u0000# branch.oid (initial)\u0000")) return List.of();
-        byte[] data = git.run(directory, "log", "-n", Integer.toString(count), "--format=%H%x1f%s%x1f%an%x1f%cI%x1e");
+        byte[] data = git.run(directory, "log", "--skip=" + offset, "-n", Integer.toString(count), "--format=%H%x1f%s%x1f%an%x1f%cI%x1e");
         String output = new String(data, StandardCharsets.UTF_8);
         List<CommitInfo> commits = new ArrayList<>();
         for (String record : output.split("\u001e")) {
