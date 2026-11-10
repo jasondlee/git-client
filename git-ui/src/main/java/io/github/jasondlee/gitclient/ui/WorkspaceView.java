@@ -25,6 +25,7 @@ public final class WorkspaceView extends BorderPane {
     private final ComboBox<String> stashSelector = new ComboBox<>();
     private final TableView<ChangedFile> status = new TableView<>();
     private final ListView<CommitInfo> history = new ListView<>();
+    private final CommitGraphView commitGraph = createCommitGraphView();
     private final TextArea diffPreview = new TextArea();
     private final TabPane diffTabs = new TabPane();
     private long diffGeneration;
@@ -697,7 +698,17 @@ public final class WorkspaceView extends BorderPane {
                 setContextMenu(menu);
             }
         });
-        SplitPane panes = new SplitPane(new VBox(new Label("Working tree"), status), new VBox(new Label("Recent commits"), history));
+        Tab recentTab = new Tab("Recent commits", history);
+        Tab graphTab = new Tab("Branch graph", commitGraph);
+        recentTab.setClosable(false);
+        graphTab.setClosable(false);
+        TabPane historyTabs = new TabPane(recentTab, graphTab);
+        historyTabs.getSelectionModel().selectedItemProperty().addListener(
+                (observable, previous, selected) -> {
+                    if (selected == graphTab && repository != null) loadCommitGraph(repository);
+                });
+        SplitPane panes = new SplitPane(new VBox(new Label("Working tree"), status),
+                historyTabs);
         panes.setDividerPositions(0.5);
         diffPreview.setEditable(false);
         diffPreview.setWrapText(false);
@@ -721,6 +732,7 @@ public final class WorkspaceView extends BorderPane {
         workspace.setDividerPositions(0.6);
         VBox.setVgrow(status, Priority.ALWAYS);
         VBox.setVgrow(history, Priority.ALWAYS);
+        VBox.setVgrow(historyTabs, Priority.ALWAYS);
         setCenter(workspace);
         BorderPane.setMargin(workspace, new Insets(8));
         commitMessage.setPromptText("Commit message");
@@ -1300,6 +1312,47 @@ public final class WorkspaceView extends BorderPane {
         });
     }
 
+    private CommitGraphView createCommitGraphView() {
+        return new CommitGraphView(
+                hash -> showCommitDetails(hash),
+                hash -> javafx.scene.input.Clipboard.getSystemClipboard().setContent(
+                        java.util.Map.of(javafx.scene.input.DataFormat.PLAIN_TEXT, hash)),
+                hash -> operateOnCommit(hash, false),
+                hash -> operateOnCommit(hash, true));
+    }
+
+    private void showCommitDetails(String hash) {
+        if (repository == null) return;
+        Path current = repository;
+        showTextReport("Commit " + hash, () -> repositories.showCommit(current, hash));
+    }
+
+    private void operateOnCommit(String hash, boolean revert) {
+        if (repository == null) return;
+        Path current = repository;
+        confirmOperation((revert ? "Revert " : "Cherry-pick ") + hash.substring(0, 8) + "?",
+                () -> {
+                    if (revert) repositories.revert(current, hash);
+                    else repositories.cherryPick(current, hash);
+                });
+    }
+
+    private void loadCommitGraph(Path current) {
+        long generation = refreshGeneration;
+        Thread.startVirtualThread(() -> {
+            try {
+                String graph = repositories.commitGraph(current, 500);
+                Platform.runLater(() -> {
+                    if (generation == refreshGeneration && current.equals(repository)) {
+                        commitGraph.setGraph(graph);
+                    }
+                });
+            } catch (Exception ex) {
+                Platform.runLater(() -> message.setText("Commit graph: " + ex.getMessage()));
+            }
+        });
+    }
+
     private void showCommitGraph(Path current) {
         Thread.startVirtualThread(() -> {
             try {
@@ -1308,99 +1361,10 @@ public final class WorkspaceView extends BorderPane {
                     Dialog<Void> dialog = new Dialog<>();
                     dialog.setTitle("Commit Graph — All Branches");
                     dialog.setHeaderText("Recent commits and branch topology");
-                    javafx.scene.layout.VBox rows = new javafx.scene.layout.VBox(2);
-                    javafx.scene.control.TextField search = new javafx.scene.control.TextField();
-                    search.setPromptText("Filter commits by hash, subject, or ref");
-                    javafx.scene.control.Label count = new javafx.scene.control.Label();
-                    javafx.scene.paint.Color[] palette = {
-                            javafx.scene.paint.Color.DODGERBLUE,
-                            javafx.scene.paint.Color.MEDIUMSEAGREEN,
-                            javafx.scene.paint.Color.DARKORANGE,
-                            javafx.scene.paint.Color.MEDIUMPURPLE,
-                            javafx.scene.paint.Color.DEEPPINK,
-                            javafx.scene.paint.Color.TEAL
-                    };
-                    int graphWidth = graph.lines().mapToInt(line -> {
-                        int boundary = 0;
-                        while (boundary < line.length()
-                                && "*|/\\\\ ".indexOf(line.charAt(boundary)) >= 0) {
-                            boundary++;
-                        }
-                        return boundary;
-                    }).max().orElse(1);
-                    for (String line : graph.split("\\R")) {
-                        int boundary = 0;
-                        while (boundary < line.length()
-                                && "*|/\\ ".indexOf(line.charAt(boundary)) >= 0) {
-                            boundary++;
-                        }
-                        final double cell = 12;
-                        final double rowHeight = 24;
-                        javafx.scene.canvas.Canvas lanes =
-                                new javafx.scene.canvas.Canvas(Math.max(1, graphWidth) * cell, rowHeight);
-                        javafx.scene.canvas.GraphicsContext gc = lanes.getGraphicsContext2D();
-                        gc.setLineWidth(2.2);
-                        for (int column = 0; column < boundary; column++) {
-                            char symbol = line.charAt(column);
-                            double x = column * cell + cell / 2;
-                            double middle = rowHeight / 2;
-                            gc.setStroke(palette[(column / 2) % palette.length]);
-                            gc.setFill(palette[(column / 2) % palette.length]);
-                            switch (symbol) {
-                                case '|' -> gc.strokeLine(x, 0, x, rowHeight);
-                                case '/' -> gc.strokeLine(x + cell / 2, 0,
-                                        x - cell / 2, rowHeight);
-                                case '\\\\' -> gc.strokeLine(x - cell / 2, 0,
-                                        x + cell / 2, rowHeight);
-                                case '*' -> {
-                                    gc.strokeLine(x, 0, x, rowHeight);
-                                    gc.fillOval(x - 4.5, middle - 4.5, 9, 9);
-                                }
-                                default -> { }
-                            }
-                        }
-                        Label description = new Label(line.substring(boundary));
-                        description.setStyle("-fx-font-family: monospace; -fx-font-size: 13px;");
-                        javafx.scene.layout.HBox flow = new javafx.scene.layout.HBox(6,
-                                lanes, description);
-                        flow.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
-                        java.util.regex.Matcher commitId =
-                                java.util.regex.Pattern.compile(
-                                        "(?<![0-9a-fA-F])[0-9a-fA-F]{7,40}(?![0-9a-fA-F])")
-                                        .matcher(line.substring(boundary));
-                        if (commitId.find()) {
-                            String id = commitId.group();
-                            flow.setOnMouseClicked(event -> {
-                                dialog.close();
-                                showTextReport("Commit " + id,
-                                        () -> repositories.showCommit(current, id));
-                            });
-                            flow.setStyle("-fx-cursor: hand; -fx-padding: 2px 4px;");
-                        }
-                        flow.setUserData(line);
-                        rows.getChildren().add(flow);
-                    }
-                    javafx.scene.control.ScrollPane scroll =
-                            new javafx.scene.control.ScrollPane(rows);
-                    search.textProperty().addListener((observable, oldValue, query) -> {
-                        String needle = query.strip().toLowerCase(java.util.Locale.ROOT);
-                        int visible = 0;
-                        for (javafx.scene.Node node : rows.getChildren()) {
-                            boolean match = needle.isEmpty()
-                                    || ((String) node.getUserData())
-                                            .toLowerCase(java.util.Locale.ROOT).contains(needle);
-                            node.setVisible(match);
-                            node.setManaged(match);
-                            if (match) visible++;
-                        }
-                        count.setText(visible + " matching graph rows");
-                    });
-                    count.setText(rows.getChildren().size() + " graph rows");
-                    scroll.setFitToWidth(true);
-                    scroll.setPrefViewportWidth(850);
-                    scroll.setPrefViewportHeight(550);
-                    javafx.scene.layout.VBox graphContent = new javafx.scene.layout.VBox(6, search, count, scroll);
-                    dialog.getDialogPane().setContent(graphContent);
+                    CommitGraphView view = createCommitGraphView();
+                    view.setGraph(graph);
+                    view.setPrefSize(900, 560);
+                    dialog.getDialogPane().setContent(view);
                     dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
                     dialog.show();
                 });
@@ -1707,6 +1671,7 @@ public final class WorkspaceView extends BorderPane {
                     else if (!remotes.isEmpty()) remoteSelector.setValue(remotes.getFirst());
                     status.getItems().setAll(snapshot.files());
                     history.getItems().setAll(commits);
+                    loadCommitGraph(root);
                     loadDiff();
                     message.setText(snapshot.files().size() + " changed files · " + commits.size() + " commits");
                 });
