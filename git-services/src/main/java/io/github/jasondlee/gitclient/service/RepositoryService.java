@@ -712,7 +712,7 @@ public final class RepositoryService {
         String todo = validateInteractiveRebasePlan(original, plan);
         Map<String, String> messages = Objects.requireNonNull(replacementMessages,
                 "replacementMessages");
-        Map<String, String> subjects = new LinkedHashMap<>();
+        List<Map.Entry<String, String>> subjects = new ArrayList<>();
         for (String line : todo.lines().filter(line -> !line.isBlank()).toList()) {
             String[] tokens = line.split(" ", 2);
             if (!tokens[0].equals("reword")) continue;
@@ -724,9 +724,10 @@ public final class RepositoryService {
             String originalMessage = new String(git.run(root, "log", "-1", "--format=%B",
                     tokens[1]), StandardCharsets.UTF_8);
             String subject = originalMessage.lines().findFirst().orElse("");
-            if (subject.isBlank() || subjects.putIfAbsent(subject, replacement) != null) {
-                throw new IllegalArgumentException("Cannot reword commits with duplicate or empty subjects");
+            if (subject.isBlank()) {
+                throw new IllegalArgumentException("Cannot reword a commit with an empty subject");
             }
+            subjects.add(Map.entry(subject, replacement));
         }
         if (!messages.keySet().equals(
                 todo.lines().filter(line -> line.startsWith("reword "))
@@ -762,6 +763,10 @@ public final class RepositoryService {
                                             StandardCharsets.UTF_8);
                                     Files.writeString(target, replacement.stripTrailing() + "\\n",
                                             StandardCharsets.UTF_8);
+                                    java.util.List<String> remaining =
+                                            new java.util.ArrayList<>(Files.readAllLines(Path.of(args[1])));
+                                    remaining.remove(line);
+                                    Files.write(Path.of(args[1]), remaining, StandardCharsets.UTF_8);
                                     return;
                                 }
                             }
@@ -771,7 +776,7 @@ public final class RepositoryService {
             java.nio.file.Files.writeString(instructions, todo);
             messageMap = java.nio.file.Files.createTempFile("git-client-messages-", ".map");
             StringBuilder mapping = new StringBuilder();
-            for (var entry : subjects.entrySet()) {
+            for (var entry : subjects) {
                 mapping.append(Base64.getEncoder().encodeToString(
                         entry.getKey().getBytes(StandardCharsets.UTF_8)))
                         .append('\t').append(Base64.getEncoder().encodeToString(
