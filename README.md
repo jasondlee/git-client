@@ -39,6 +39,22 @@ GitHub Actions provides two separate workflows:
 
 Packaging has not yet been verified on every runner. These application bundles are not signed or notarized, and are not yet MSI, DMG, or DEB installers. Do not treat them as production releases until packaging and launch smoke tests pass on each OS.
 
+## Verification and quality gates
+
+Run `mvn --batch-mode --no-transfer-progress --fail-at-end verify` with
+JDK 27 and Git installed. The GitHub Actions build matrix runs the same
+verification on Ubuntu, Windows, and macOS and uploads Surefire reports
+from each runner, including failed runs. The `git-cli`, `git-services`,
+and `git-ui` modules include automated tests covering Git command
+execution, repository workflows, graph parsing, and history operations.
+
+Manual GUI acceptance remains necessary for JavaFX rendering, focus,
+keyboard shortcuts, accessibility, and native window behavior. On each
+supported desktop OS, check that repository refresh and history graph
+load correctly, commit graph merges align, history filtering preserves
+topology, shortcuts work, and errors provide readable details. Packaging
+and installer verification are tracked separately.
+
 ## Workspace preferences and accessibility
 
 Open **Preferences** in the toolbar to configure the number of recent commits
