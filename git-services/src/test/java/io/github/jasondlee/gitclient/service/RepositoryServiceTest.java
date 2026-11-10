@@ -96,6 +96,22 @@ class RepositoryServiceTest {
                 () -> service.resolveConflictByDeleting(directory, "shared.txt"));
     }
 
+    @Test void fileCommitPatchFindsChangesBeforeRename() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        Files.writeString(directory.resolve("original.txt"), "original text\n");
+        git("add", ".");
+        git("commit", "-m", "create original");
+        var service = new RepositoryService();
+        String originalCommit = service.history(directory, 1).getFirst().id();
+        git("mv", "original.txt", "renamed.txt");
+        git("commit", "-m", "rename");
+        String patch = service.fileCommitPatch(directory, originalCommit, "renamed.txt");
+        assertTrue(patch.contains("+original text"), patch);
+        assertTrue(patch.contains("original.txt"), patch);
+    }
+
     @Test void fileCommitPatchShowsOnlySelectedFile() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
