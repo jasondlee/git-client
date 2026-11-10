@@ -69,6 +69,10 @@ public final class WorkspaceView extends BorderPane {
                 runBranchAction(() -> repositories.ignorePattern(current, pattern));
             });
         });
+        Button stageHunk = new Button("Stage Hunk");
+        Button unstageHunk = new Button("Unstage Hunk");
+        stageHunk.setOnAction(e -> chooseDiffHunk(false));
+        unstageHunk.setOnAction(e -> chooseDiffHunk(true));
         Button stage = new Button("Stage Selected");
         Button unstage = new Button("Unstage Selected");
         stage.setOnAction(e -> changeStaging(false));
@@ -536,7 +540,7 @@ public final class WorkspaceView extends BorderPane {
         MenuButton advancedMenu = actionsMenu("Advanced", exportPatch, applyPatch,
                 configView, configEdit, worktrees, addWorktree, removeWorktree, submodules,
                 updateSubmodules, createTag, annotatedTag, deleteTag, stash, applyStash, dropStash);
-        ToolBar toolbar = new ToolBar(open, initialize, clone, refresh, stage, unstage,
+        ToolBar toolbar = new ToolBar(open, initialize, clone, refresh, stage, unstage, stageHunk, unstageHunk,
                 discard, ignore,
                 new Separator(), branchSelector, branchesMenu,
                 new Separator(), historyMenu, operationsMenu, advancedMenu,
@@ -770,6 +774,65 @@ public final class WorkspaceView extends BorderPane {
                 Platform.runLater(() -> {
                     if (generation == diffGeneration) diffPreview.setText("Commit error: " + ex.getMessage());
                 });
+            }
+        });
+    }
+    private void chooseDiffHunk(boolean unstage) {
+        ChangedFile selected = status.getSelectionModel().getSelectedItem();
+        if (repository == null || selected == null) {
+            message.setText("Select a changed tracked file first.");
+            return;
+        }
+        Path current = repository;
+        Thread.startVirtualThread(() -> {
+            try {
+                var hunks = repositories.diffHunks(current, selected.path(), unstage);
+                Platform.runLater(() -> {
+                    if (hunks.isEmpty()) {
+                        message.setText("No " + (unstage ? "staged" : "unstaged")
+                                + " hunks for " + selected.path());
+                        return;
+                    }
+                    Dialog<Integer> dialog = new Dialog<>();
+                    dialog.setTitle(unstage ? "Unstage Hunk" : "Stage Hunk");
+                    dialog.setHeaderText(selected.path());
+                    ListView<String> list = new ListView<>();
+                    list.getItems().setAll(hunks);
+                    list.setCellFactory(view -> new ListCell<>() {
+                        @Override protected void updateItem(String patch, boolean empty) {
+                            super.updateItem(patch, empty);
+                            if (empty || patch == null) {
+                                setText(null);
+                            } else {
+                                int index = hunks.indexOf(patch);
+                                int at = patch.indexOf("@@ ");
+                                int end = patch.indexOf("\n", at);
+                                setText("Hunk " + (index + 1) + ": "
+                                        + patch.substring(at, end < 0 ? patch.length() : end));
+                            }
+                        }
+                    });
+                    list.getSelectionModel().selectFirst();
+                    TextArea preview = new TextArea(hunks.getFirst());
+                    preview.setEditable(false);
+                    preview.setPrefRowCount(14);
+                    list.getSelectionModel().selectedIndexProperty().addListener(
+                            (obs, oldValue, newValue) -> {
+                                int index = newValue.intValue();
+                                if (index >= 0) preview.setText(hunks.get(index));
+                            });
+                    VBox content = new VBox(8, list, preview);
+                    dialog.getDialogPane().setContent(content);
+                    dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+                    dialog.setResultConverter(button -> button == ButtonType.OK
+                            ? list.getSelectionModel().getSelectedIndex() : null);
+                    dialog.showAndWait().ifPresent(index -> {
+                        if (index >= 0) runBranchAction(
+                                () -> repositories.applyIndexHunk(current, hunks.get(index), unstage));
+                    });
+                });
+            } catch (Exception ex) {
+                Platform.runLater(() -> message.setText("Hunk operation: " + ex.getMessage()));
             }
         });
     }
