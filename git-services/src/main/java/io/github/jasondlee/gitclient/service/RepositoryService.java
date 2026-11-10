@@ -702,6 +702,13 @@ public final class RepositoryService {
         }
         git.run(findRepository(directory), "lfs", "track", "--", pattern);
     }
+    public void untrackLfsPattern(Path directory, String pattern) {
+        if (pattern == null || pattern.isBlank() || pattern.startsWith("-")
+                || pattern.contains("\\n") || pattern.contains("\\r")) {
+            throw new IllegalArgumentException("Invalid LFS tracking pattern");
+        }
+        git.run(findRepository(directory), "lfs", "untrack", "--", pattern);
+    }
     public List<String> installedHooks(Path directory) {
         Path root = findRepository(directory);
         String hooksPath = new String(git.run(root, "rev-parse", "--git-path", "hooks"),
@@ -724,6 +731,12 @@ public final class RepositoryService {
     }
     public void updateSubmodules(Path directory) {
         git.run(findRepository(directory), "submodule", "update", "--init", "--recursive");
+    }
+    public void syncSubmodules(Path directory) {
+        git.run(findRepository(directory), "submodule", "sync", "--recursive");
+    }
+    public void pruneWorktrees(Path directory) {
+        git.run(findRepository(directory), "worktree", "prune");
     }
     public List<String> worktrees(Path directory) {
         String output = new String(git.run(findRepository(directory),
