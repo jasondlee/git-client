@@ -46,6 +46,32 @@ class RepositoryServiceTest {
                 () -> service.interactiveRebase(directory, "base", plan));
     }
 
+    @Test void interactiveRebaseRewordsCommitSubject() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
+        Files.writeString(directory.resolve("base.txt"), "base\n");
+        git("add", ".");
+        git("commit", "-m", "base");
+        git("branch", "base");
+        Files.writeString(directory.resolve("change.txt"), "change\n");
+        git("add", ".");
+        git("commit", "-m", "before reword");
+        var service = new RepositoryService();
+        String original = service.interactiveRebasePlan(directory, "base").strip();
+        String hash = original.split(" ", 3)[1];
+        String plan = original.replaceFirst("^pick ", "reword ") + "\n";
+        assertThrows(IllegalArgumentException.class,
+                () -> service.interactiveRebase(directory, "base", plan));
+        service.interactiveRebase(directory, "base", plan,
+                java.util.Map.of(hash, "after reword"));
+        assertTrue(service.interactiveRebasePlan(directory, "base")
+                .contains("after reword"));
+        assertFalse(service.interactiveRebasePlan(directory, "base")
+                .contains("before reword"));
+    }
+
     @Test void interactiveRebaseSquashesCommits() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
