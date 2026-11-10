@@ -366,8 +366,30 @@ public final class RepositoryService {
         validateCommitId(commitId);
         Path root = findRepository(directory);
         validateRepositoryPath(root, path);
+        // Walk the same rename-aware history shown in the UI. A commit preceding
+        // a rename must be displayed using the file's name at that commit.
+        String history = new String(git.run(root, "log", "--follow", "--name-status",
+                "--format=commit:%H", "--", path), StandardCharsets.UTF_8);
+        String historicalPath = path;
+        String commitPath = null;
+        boolean selected = false;
+        for (String line : history.lines().toList()) {
+            if (line.startsWith("commit:")) {
+                if (selected) break;
+                selected = line.substring("commit:".length()).startsWith(commitId);
+                if (selected) commitPath = historicalPath;
+            } else if (line.startsWith("R") && line.contains("\t")) {
+                String[] fields = line.split("\t", 3);
+                if (fields.length == 3 && fields[2].equals(historicalPath)) {
+                    historicalPath = fields[1];
+                }
+            }
+        }
+        if (commitPath == null) {
+            throw new IllegalArgumentException("Commit is not in this file's history");
+        }
         return new String(git.run(root, "show", "--format=fuller", "--find-renames",
-                "--no-ext-diff", "--no-color", commitId, "--", path),
+                "--no-ext-diff", "--no-color", commitId, "--", commitPath),
                 StandardCharsets.UTF_8);
     }
     public List<String> searchCommits(Path directory, String query, int count) {
