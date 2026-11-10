@@ -620,7 +620,7 @@ public final class WorkspaceView extends BorderPane {
                 resetBisect, graph, reflog,
                 blame, reset);
         MenuButton operationsMenu = actionsMenu("Operations", continueOperation,
-                abortOperation, skipRebase, rebaseProgress, conflicts, resolveConflicts);
+                abortOperation, skipRebase, rebaseProgress, rebaseRecovery, conflicts, resolveConflicts);
         MenuButton remoteMenu = actionsMenu("Remotes", addRemote, renameRemote,
                 removeRemote, remoteDetails);
         MenuButton advancedMenu = actionsMenu("Advanced", exportPatch, applyPatch,
@@ -937,6 +937,67 @@ public final class WorkspaceView extends BorderPane {
             }
         });
     }
+    private void showRebaseRecovery() {
+        if (repository == null) return;
+        Path current = repository;
+        Thread.startVirtualThread(() -> {
+            try {
+                String progress = repositories.rebaseProgress(current);
+                Platform.runLater(() -> {
+                    Dialog<String> dialog = new Dialog<>();
+                    dialog.setTitle("Rebase Recovery");
+                    dialog.setHeaderText("Inspect and recover an interrupted rebase");
+                    TextArea details = new TextArea(progress);
+                    details.setEditable(false);
+                    details.setWrapText(true);
+                    details.setPrefRowCount(12);
+                    details.setPrefColumnCount(72);
+                    Label guidance = new Label(
+                            "Resolve conflicts and stage the files before continuing. "
+                                    + "Skip discards the current commit; Abort restores the pre-rebase state.");
+                    guidance.setWrapText(true);
+                    dialog.getDialogPane().setContent(new VBox(8, details, guidance));
+                    ButtonType resolve = new ButtonType("Resolve Conflicts",
+                            ButtonBar.ButtonData.OTHER);
+                    ButtonType resume = new ButtonType("Continue",
+                            ButtonBar.ButtonData.OTHER);
+                    ButtonType skip = new ButtonType("Skip Commit",
+                            ButtonBar.ButtonData.OTHER);
+                    ButtonType abort = new ButtonType("Abort Rebase",
+                            ButtonBar.ButtonData.OTHER);
+                    dialog.getDialogPane().getButtonTypes().addAll(
+                            resolve, resume, skip, abort, ButtonType.CANCEL);
+                    boolean active = !progress.startsWith("No rebase in progress.");
+                    for (ButtonType option : java.util.List.of(resolve, resume, skip, abort)) {
+                        dialog.getDialogPane().lookupButton(option).setDisable(!active);
+                    }
+                    dialog.setResultConverter(button -> {
+                        if (button == resolve) return "resolve";
+                        if (button == resume) return "continue";
+                        if (button == skip) return "skip";
+                        if (button == abort) return "abort";
+                        return null;
+                    });
+                    dialog.showAndWait().ifPresent(selection -> {
+                        switch (selection) {
+                            case "resolve" -> showConflictEditor();
+                            case "continue" -> runBranchAction(() -> repositories.continueRebase(current));
+                            case "skip" -> confirmOperation(
+                                    "Skip the current commit? Its changes may be discarded.",
+                                    () -> repositories.skipRebase(current));
+                            case "abort" -> confirmOperation(
+                                    "Abort this rebase and restore the branch to its previous state?",
+                                    () -> repositories.abortRebase(current));
+                            default -> { }
+                        }
+                    });
+                });
+            } catch (Exception ex) {
+                Platform.runLater(() -> message.setText("Rebase recovery: " + ex.getMessage()));
+            }
+        });
+    }
+
     private void showInteractiveRebase() {
         if (repository == null || branchSelector.getValue() == null) {
             message.setText("Choose a base branch before interactive rebase.");
