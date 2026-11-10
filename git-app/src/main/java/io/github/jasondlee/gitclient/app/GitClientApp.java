@@ -23,10 +23,6 @@ public final class GitClientApp extends Application {
         layout.setTop(new ToolBar(newTab));
         layout.setCenter(repositories);
         repositories.setTabClosingPolicy(TabPane.TabClosingPolicy.ALL_TABS);
-        repositories.getTabs().addListener(
-                (javafx.collections.ListChangeListener<Tab>) change -> {
-                    if (repositories.getTabs().isEmpty()) addRepositoryTab(null);
-                });
         if (getParameters().getRaw().isEmpty()) {
             addRepositoryTab(null);
         } else {
@@ -52,6 +48,9 @@ public final class GitClientApp extends Application {
             }
         });
         tab.setClosable(true);
+        tab.setOnClosed(event -> {
+            if (repositories.getTabs().isEmpty()) addRepositoryTab(null);
+        });
         repositories.getTabs().add(tab);
         repositories.getSelectionModel().select(tab);
         if (path != null) workspace.openPath(path);
