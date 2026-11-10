@@ -752,6 +752,9 @@ public final class RepositoryService {
         }
         git.run(findRepository(directory), "lfs", "track", "--", pattern);
     }
+    public void pullLfsObjects(Path directory) {
+        git.run(findRepository(directory), "lfs", "pull");
+    }
     public void untrackLfsPattern(Path directory, String pattern) {
         if (pattern == null || pattern.isBlank() || pattern.startsWith("-")
                 || pattern.contains("\\n") || pattern.contains("\\r")) {
