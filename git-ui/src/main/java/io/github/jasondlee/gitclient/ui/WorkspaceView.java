@@ -905,7 +905,27 @@ public final class WorkspaceView extends BorderPane {
         history.getSelectionModel().selectedItemProperty().addListener((observable, oldCommit, newCommit) -> {
             if (diffTabs.getSelectionModel().getSelectedIndex() == 2) loadDiff();
         });
-        VBox diffPanel = new VBox(6, diffTabs, diffPreview);
+        TextField diffSearch = new TextField();
+        diffSearch.setPromptText("Find in diff or commit details");
+        diffSearch.setAccessibleText("Search visible diff contents");
+        Runnable findDiff = () -> {
+            String query = diffSearch.getText();
+            if (query == null || query.isEmpty()) return;
+            String haystack = diffPreview.getText().toLowerCase(java.util.Locale.ROOT);
+            String needle = query.toLowerCase(java.util.Locale.ROOT);
+            int index = haystack.indexOf(needle, diffPreview.getSelection().getEnd());
+            if (index < 0) index = haystack.indexOf(needle);
+            if (index >= 0) {
+                diffPreview.selectRange(index, index + query.length());
+                diffPreview.requestFocus();
+            }
+        };
+        diffSearch.setOnAction(event -> findDiff.run());
+        Button diffFindNext = new Button("Find Next");
+        diffFindNext.setOnAction(event -> findDiff.run());
+        HBox diffSearchBar = new HBox(8, diffSearch, diffFindNext);
+        HBox.setHgrow(diffSearch, javafx.scene.layout.Priority.ALWAYS);
+        VBox diffPanel = new VBox(6, diffTabs, diffSearchBar, diffPreview);
         diffPanel.setPadding(new Insets(8));
         VBox.setVgrow(diffPreview, Priority.ALWAYS);
         SplitPane workspace = new SplitPane(panes, diffPanel);
