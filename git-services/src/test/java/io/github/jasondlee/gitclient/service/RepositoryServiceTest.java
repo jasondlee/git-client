@@ -714,6 +714,35 @@ class RepositoryServiceTest {
         assertEquals("unstaged.txt", changes.getFirst().path());
         assertThrows(IllegalStateException.class, () -> service.commit(directory, "again"));
     }
+    @Test void rebaseRecoveryReportsConflictsAndSupportsAbort() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
+        Files.writeString(directory.resolve("shared.txt"), "base\n");
+        git("add", ".");
+        git("commit", "-m", "base");
+        git("branch", "feature");
+        Files.writeString(directory.resolve("shared.txt"), "master change\n");
+        git("add", ".");
+        git("commit", "-m", "master change");
+        git("checkout", "feature");
+        Files.writeString(directory.resolve("shared.txt"), "feature change\n");
+        git("add", ".");
+        git("commit", "-m", "feature change");
+        var service = new RepositoryService();
+        assertEquals("No rebase in progress.", service.rebaseProgress(directory));
+        assertThrows(RuntimeException.class, () -> service.rebase(directory, "master"));
+        String progress = service.rebaseProgress(directory);
+        assertTrue(progress.contains("Rebasing"), progress);
+        assertTrue(progress.contains("Unresolved conflicts:\nshared.txt"), progress);
+        assertTrue(service.conflictedFiles(directory).contains("shared.txt"));
+        service.abortRebase(directory);
+        assertEquals("No rebase in progress.", service.rebaseProgress(directory));
+        assertEquals("feature", service.status(directory).branch());
+        assertEquals("feature change\n", Files.readString(directory.resolve("shared.txt")));
+    }
+
     @Test void emptyRepositoryHasNoHistory() throws Exception {
         git("init", "-b", "master");
         var service = new RepositoryService();
