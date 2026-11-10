@@ -1060,15 +1060,37 @@ public final class WorkspaceView extends BorderPane {
                     oursView.setPrefRowCount(10);
                     theirsView.setPrefRowCount(10);
                     result.setPrefRowCount(14);
+                    baseView.setAccessibleText("Common ancestor, read only");
+                    oursView.setAccessibleText("Current branch version, read only");
+                    theirsView.setAccessibleText("Incoming branch version, read only");
+                    result.setAccessibleText("Editable conflict resolution");
+                    Button useBase = new Button("Use Base");
                     Button useOurs = new Button("Use Ours");
                     Button useTheirs = new Button("Use Theirs");
+                    Button reset = new Button("Reset to Working File");
+                    useBase.setOnAction(e -> result.setText(base));
                     useOurs.setOnAction(e -> result.setText(ours));
                     useTheirs.setOnAction(e -> result.setText(theirs));
-                    VBox content = new VBox(8, new Label("Common ancestor"), baseView,
-                            new Label("Ours"), oursView,
-                            new Label("Theirs"), theirsView,
-                            new HBox(8, useOurs, useTheirs),
+                    reset.setOnAction(e -> result.setText(working));
+                    HBox versions = new HBox(8,
+                            new VBox(4, new Label("Common ancestor"), baseView),
+                            new VBox(4, new Label("Ours (current)"), oursView),
+                            new VBox(4, new Label("Theirs (incoming)"), theirsView));
+                    for (var pane : versions.getChildren()) {
+                        HBox.setHgrow(pane, javafx.scene.layout.Priority.ALWAYS);
+                        if (pane instanceof VBox column) {
+                            for (var child : column.getChildren()) {
+                                if (child instanceof TextArea area) {
+                                    VBox.setVgrow(area, javafx.scene.layout.Priority.ALWAYS);
+                                }
+                            }
+                        }
+                    }
+                    result.setWrapText(preferences.getBoolean("diff.wrap", false));
+                    VBox content = new VBox(8, versions,
+                            new HBox(8, useBase, useOurs, useTheirs, reset),
                             new Label("Resolution (editable)"), result);
+                    content.setPrefSize(1000, 650);
                     dialog.getDialogPane().setContent(content);
                     dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
                     dialog.setResultConverter(button -> button == ButtonType.OK ? result.getText() : null);
