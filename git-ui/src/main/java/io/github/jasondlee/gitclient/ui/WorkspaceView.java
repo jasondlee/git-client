@@ -1085,6 +1085,9 @@ public final class WorkspaceView extends BorderPane {
             });
         });
     }
+    public javafx.beans.property.ReadOnlyStringProperty repositoryLocationProperty() {
+        return location.textProperty();
+    }
     public void openPath(Path path) {
         selectRepository(path);
     }
