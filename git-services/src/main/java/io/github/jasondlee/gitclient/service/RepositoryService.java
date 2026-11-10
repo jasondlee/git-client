@@ -693,6 +693,9 @@ public final class RepositoryService {
             Map<String, String> replacementMessages) {
         validateBranchName(baseBranch);
         Path root = findRepository(directory);
+        if (rebaseInProgress(root)) {
+            throw new IllegalStateException("Finish or abort the existing rebase before starting another");
+        }
         if (!branches(root).contains(baseBranch)) {
             throw new IllegalArgumentException("Unknown local branch: " + baseBranch);
         }
@@ -851,6 +854,14 @@ public final class RepositoryService {
     public void continueRebase(Path directory) {
         git.run(findRepository(directory), "rebase", "--continue");
     }
+    public boolean rebaseInProgress(Path directory) {
+        Path root = findRepository(directory);
+        Path gitDirectory = Path.of(new String(git.run(root, "rev-parse",
+                "--absolute-git-dir"), StandardCharsets.UTF_8).strip());
+        return java.nio.file.Files.isDirectory(gitDirectory.resolve("rebase-merge"))
+                || java.nio.file.Files.isDirectory(gitDirectory.resolve("rebase-apply"));
+    }
+
     /** Describe an in-progress rebase without modifying its state. */
     public String rebaseProgress(Path directory) {
         Path root = findRepository(directory);
