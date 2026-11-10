@@ -200,6 +200,7 @@ public final class WorkspaceView extends BorderPane {
         Button rebase = new Button("Rebase Onto");
         Button fixup = new Button("Fixup Selected Commit");
         Button autosquash = new Button("Autosquash Rebase");
+        Button interactiveRebase = new Button("Interactive Rebase");
         fixup.setOnAction(e -> {
             CommitInfo selected = history.getSelectionModel().getSelectedItem();
             if (repository == null || selected == null) return;
@@ -208,6 +209,7 @@ public final class WorkspaceView extends BorderPane {
                             + " from staged changes?",
                     () -> repositories.createFixupCommit(current, selected.id()));
         });
+        interactiveRebase.setOnAction(e -> showInteractiveRebase());
         autosquash.setOnAction(e -> {
             if (repository == null || branchSelector.getValue() == null) return;
             Path current = repository;
