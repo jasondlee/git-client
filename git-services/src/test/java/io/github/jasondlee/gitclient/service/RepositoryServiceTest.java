@@ -94,6 +94,37 @@ class RepositoryServiceTest {
         assertTrue(graph.contains("topic"), graph);
     }
 
+    @Test void endToEndHistoryBranchMergeAndRevertWorkflow() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
+        var service = new RepositoryService();
+        Files.writeString(directory.resolve("base.txt"), "base\n");
+        service.stage(directory, java.util.List.of("base.txt"));
+        String base = service.commit(directory, "base commit");
+        service.createBranchAt(directory, "feature", base);
+        service.switchBranch(directory, "feature");
+        Files.writeString(directory.resolve("feature.txt"), "feature\n");
+        service.stage(directory, java.util.List.of("feature.txt"));
+        String feature = service.commit(directory, "feature commit");
+        service.switchBranch(directory, "master");
+        Files.writeString(directory.resolve("master.txt"), "master\n");
+        service.stage(directory, java.util.List.of("master.txt"));
+        service.commit(directory, "master commit");
+        service.merge(directory, "feature");
+        String graph = service.commitGraph(directory, 50);
+        assertTrue(graph.contains(feature), graph);
+        assertTrue(graph.contains("feature commit"), graph);
+        assertTrue(graph.contains("master commit"), graph);
+        assertTrue(Files.exists(directory.resolve("feature.txt")));
+        service.revert(directory, feature);
+        assertFalse(Files.exists(directory.resolve("feature.txt")));
+        assertTrue(Files.exists(directory.resolve("master.txt")));
+        assertEquals("master", service.status(directory).branch());
+        assertTrue(service.history(directory, 10).getFirst().subject().startsWith("Revert"));
+    }
+
     @Test void interactiveRebaseRejectsFirstFixupAndDirtyTree() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
