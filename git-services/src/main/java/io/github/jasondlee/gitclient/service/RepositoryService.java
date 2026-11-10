@@ -32,7 +32,7 @@ public final class RepositoryService {
         return Path.of(path).toAbsolutePath().normalize();
     }
     public RepositoryStatus status(Path directory) {
-        return statusParser.parse(git.run(directory, "status", "--porcelain=v2", "--branch", "-z", "--untracked-files=no"));
+        return statusParser.parse(git.run(directory, "status", "--porcelain=v2", "--branch", "-z"));
     }
     /** Stage the entire current contents of the selected paths. */
     /** Preview untracked files and directories that Git clean would remove. */
@@ -361,10 +361,12 @@ public final class RepositoryService {
         if (count <= 0) return List.of();
         Path root = findRepository(directory);
         validateRepositoryPath(root, path);
+        int pageSize = Math.min(count, 1000);
+        long limit = (long) offset + pageSize;
         String output = new String(git.run(root, "log", "--follow",
-                "--skip=" + offset, "-n", Integer.toString(Math.min(count, 1000)),
+                "-n", Long.toString(limit),
                 "--format=%h %ad %s", "--date=short", "--", path), StandardCharsets.UTF_8);
-        return output.lines().toList();
+        return output.lines().skip(offset).limit(pageSize).toList();
     }
     /** Show the changes made to a file by one commit, including its parent diff. */
     public String fileCommitPatch(Path directory, String commitId, String path) {

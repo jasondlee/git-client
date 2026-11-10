@@ -941,10 +941,10 @@ public final class WorkspaceView extends BorderPane {
             if (query == null || query.isEmpty()) return;
             String haystack = diffPreview.getText().toLowerCase(java.util.Locale.ROOT);
             String needle = query.toLowerCase(java.util.Locale.ROOT);
-            int index = haystack.indexOf(needle, diffPreview.getSelection().getEnd());
-            if (index < 0) index = haystack.indexOf(needle);
-            if (index >= 0) {
-                diffPreview.selectRange(index, index + query.length());
+            int matchIndex = haystack.indexOf(needle, diffPreview.getSelection().getEnd());
+            if (matchIndex < 0) matchIndex = haystack.indexOf(needle);
+            if (matchIndex >= 0) {
+                diffPreview.selectRange(matchIndex, matchIndex + query.length());
                 diffPreview.requestFocus();
             }
         };
