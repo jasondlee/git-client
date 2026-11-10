@@ -377,6 +377,30 @@ public final class WorkspaceView extends BorderPane {
         Button blame = new Button("Blame File");
         Button worktrees = new Button("Worktrees");
         Button addWorktree = new Button("Add Worktree");
+        Button newBranchWorktree = new Button("New Branch Worktree");
+        newBranchWorktree.setOnAction(e -> {
+            if (repository == null) return;
+            DirectoryChooser chooser = new DirectoryChooser();
+            chooser.setTitle("Choose parent directory for a new worktree");
+            java.io.File parent = chooser.showDialog(getScene().getWindow());
+            if (parent == null) return;
+            TextInputDialog dialog = new TextInputDialog("feature-worktree");
+            dialog.setTitle("Create Worktree and Branch");
+            dialog.setHeaderText("Create a new branch from HEAD in a linked worktree");
+            dialog.setContentText("New branch and folder name:");
+            dialog.showAndWait().map(String::strip).filter(name -> !name.isEmpty())
+                    .ifPresent(name -> {
+                        if (name.contains("/") || name.contains("\\\\")
+                                || name.equals(".") || name.equals("..")) {
+                            message.setText("Choose a simple folder name without separators");
+                            return;
+                        }
+                        Path current = repository;
+                        Path destination = parent.toPath().resolve(name);
+                        confirmOperation("Create branch '" + name + "' and worktree at " + destination + "?",
+                                () -> repositories.addWorktreeWithNewBranch(current, destination, name));
+                    });
+        });
         Button removeWorktree = new Button("Remove Worktree");
         Button pruneWorktrees = new Button("Prune Stale Worktrees");
         pruneWorktrees.setOnAction(e -> {
@@ -715,7 +739,7 @@ public final class WorkspaceView extends BorderPane {
                 removeRemote, remoteDetails);
         MenuButton advancedMenu = actionsMenu("Advanced", exportPatch, applyPatch,
                 configView, configEdit, hooks, lfsFiles, lfsTrack, lfsUntrack,
-                worktrees, addWorktree, removeWorktree, pruneWorktrees, submodules,
+                worktrees, addWorktree, newBranchWorktree, removeWorktree, pruneWorktrees, submodules,
                 updateSubmodules, syncSubmodules, createTag, annotatedTag, deleteTag, stash, applyStash, dropStash);
         ToolBar toolbar = new ToolBar(open, recentRepositories, initialize, clone, refresh, stage, unstage, stageHunk, unstageHunk, stageLines, unstageLines,
                 discard, clean, ignore,
