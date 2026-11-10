@@ -22,6 +22,30 @@ class RepositoryServiceTest {
             throw new java.io.UncheckedIOException(ex);
         }
     }
+    @Test void resolvesModifyDeleteConflictByStagingDeletion() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        Files.writeString(directory.resolve("shared.txt"), "base\n");
+        git("add", ".");
+        git("commit", "-m", "base");
+        git("branch", "feature");
+        git("rm", "shared.txt");
+        git("commit", "-m", "delete shared");
+        git("checkout", "feature");
+        Files.writeString(directory.resolve("shared.txt"), "modified\n");
+        git("add", ".");
+        git("commit", "-m", "modify shared");
+        var service = new RepositoryService();
+        assertThrows(RuntimeException.class, () -> service.merge(directory, "master"));
+        assertTrue(service.conflictedFiles(directory).contains("shared.txt"));
+        service.resolveConflictByDeleting(directory, "shared.txt");
+        assertFalse(Files.exists(directory.resolve("shared.txt")));
+        assertTrue(service.conflictedFiles(directory).isEmpty());
+        assertThrows(IllegalArgumentException.class,
+                () -> service.resolveConflictByDeleting(directory, "shared.txt"));
+    }
+
     @Test void fileHistoryFollowsRenames() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
