@@ -943,6 +943,7 @@ public final class WorkspaceView extends BorderPane {
         Thread.startVirtualThread(() -> {
             try {
                 String progress = repositories.rebaseProgress(current);
+                java.util.List<String> conflicts = repositories.conflictedFiles(current);
                 Platform.runLater(() -> {
                     Dialog<String> dialog = new Dialog<>();
                     dialog.setTitle("Rebase Recovery");
@@ -950,14 +951,22 @@ public final class WorkspaceView extends BorderPane {
                     TextArea details = new TextArea(progress);
                     details.setEditable(false);
                     details.setWrapText(true);
-                    details.setPrefRowCount(12);
+                    details.setPrefRowCount(8);
                     details.setPrefColumnCount(72);
+                    ListView<String> files = new ListView<>();
+                    files.getItems().setAll(conflicts);
+                    files.setPrefHeight(140);
+                    if (!conflicts.isEmpty()) files.getSelectionModel().selectFirst();
+                    Label fileLabel = new Label(conflicts.isEmpty()
+                            ? "No unresolved files."
+                            : conflicts.size() + " unresolved file(s). Select one to resolve.");
                     Label guidance = new Label(
-                            "Resolve conflicts and stage the files before continuing. "
+                            "Resolve and stage all conflicts before continuing. "
                                     + "Skip discards the current commit; Abort restores the pre-rebase state.");
                     guidance.setWrapText(true);
-                    dialog.getDialogPane().setContent(new VBox(8, details, guidance));
-                    ButtonType resolve = new ButtonType("Resolve Conflicts",
+                    dialog.getDialogPane().setContent(
+                            new VBox(8, details, fileLabel, files, guidance));
+                    ButtonType resolve = new ButtonType("Resolve Selected",
                             ButtonBar.ButtonData.OTHER);
                     ButtonType resume = new ButtonType("Continue",
                             ButtonBar.ButtonData.OTHER);
@@ -968,9 +977,12 @@ public final class WorkspaceView extends BorderPane {
                     dialog.getDialogPane().getButtonTypes().addAll(
                             resolve, resume, skip, abort, ButtonType.CANCEL);
                     boolean active = !progress.startsWith("No rebase in progress.");
-                    for (ButtonType option : java.util.List.of(resolve, resume, skip, abort)) {
-                        dialog.getDialogPane().lookupButton(option).setDisable(!active);
-                    }
+                    dialog.getDialogPane().lookupButton(resolve)
+                            .setDisable(!active || conflicts.isEmpty());
+                    dialog.getDialogPane().lookupButton(resume)
+                            .setDisable(!active || !conflicts.isEmpty());
+                    dialog.getDialogPane().lookupButton(skip).setDisable(!active);
+                    dialog.getDialogPane().lookupButton(abort).setDisable(!active);
                     dialog.setResultConverter(button -> {
                         if (button == resolve) return "resolve";
                         if (button == resume) return "continue";
@@ -980,8 +992,12 @@ public final class WorkspaceView extends BorderPane {
                     });
                     dialog.showAndWait().ifPresent(selection -> {
                         switch (selection) {
-                            case "resolve" -> showConflictEditor();
-                            case "continue" -> runBranchAction(() -> repositories.continueRebase(current));
+                            case "resolve" -> {
+                                String selected = files.getSelectionModel().getSelectedItem();
+                                if (selected != null) loadConflictEditor(current, selected);
+                            }
+                            case "continue" -> runBranchAction(
+                                    () -> repositories.continueRebase(current));
                             case "skip" -> confirmOperation(
                                     "Skip the current commit? Its changes may be discarded.",
                                     () -> repositories.skipRebase(current));
