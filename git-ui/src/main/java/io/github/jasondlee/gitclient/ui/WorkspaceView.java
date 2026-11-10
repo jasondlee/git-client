@@ -1085,6 +1085,9 @@ public final class WorkspaceView extends BorderPane {
             });
         });
     }
+    public void openPath(Path path) {
+        selectRepository(path);
+    }
     private void selectRepository(Path path) {
         repository = path.toAbsolutePath().normalize();
         location.setText(repository.toString());
