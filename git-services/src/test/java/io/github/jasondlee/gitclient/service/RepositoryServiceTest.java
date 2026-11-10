@@ -22,6 +22,25 @@ class RepositoryServiceTest {
             throw new java.io.UncheckedIOException(ex);
         }
     }
+    @Test void selectsIndividualLinesWithinAHunk() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
+        Files.writeString(directory.resolve("lines.txt"), "one\ntwo\nthree\nfour\n");
+        git("add", "lines.txt");
+        git("commit", "-m", "initial");
+        Files.writeString(directory.resolve("lines.txt"), "one\nTWO\nthree\nFOUR\n");
+        var service = new RepositoryService();
+        String patch = service.diffHunks(directory, "lines.txt", false).get(0);
+        String selected = service.selectDiffLines(patch, java.util.Set.of(0, 1));
+        service.applyIndexHunk(directory, selected, false);
+        String staged = service.diff(directory, "lines.txt", true);
+        assertTrue(staged.contains("+TWO"));
+        assertFalse(staged.contains("+FOUR"));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.selectDiffLines(patch, java.util.Set.of(100)));
+    }
     @Test void previewsAndCleansOnlyUntrackedFiles() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
