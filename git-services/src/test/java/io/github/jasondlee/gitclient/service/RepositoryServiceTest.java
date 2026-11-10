@@ -117,6 +117,17 @@ class RepositoryServiceTest {
                 () -> service.resolveConflictByDeleting(directory, "shared.txt"));
     }
 
+    @Test void submoduleAdditionRejectsUnsafeArguments() throws Exception {
+        git("init", "-b", "master");
+        var service = new RepositoryService();
+        assertThrows(IllegalArgumentException.class,
+                () -> service.addSubmodule(directory, "--help", "vendor/module"));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.addSubmodule(directory, "https://example.invalid/repo.git", "../escape"));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.addSubmodule(directory, "https://example.invalid/repo.git", "-bad"));
+    }
+
     @Test void lfsUntrackRejectsUnsafePatternsWithoutInvokingLfs() {
         var service = new RepositoryService();
         assertThrows(IllegalArgumentException.class,
