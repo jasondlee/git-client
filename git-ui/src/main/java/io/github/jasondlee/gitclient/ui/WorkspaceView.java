@@ -949,6 +949,58 @@ public final class WorkspaceView extends BorderPane {
                     javafx.collections.ObservableList<String> commits =
                             javafx.collections.FXCollections.observableArrayList(initial.lines().toList());
                     ListView<String> commitList = new ListView<>(commits);
+                    commitList.setCellFactory(view -> new javafx.scene.control.ListCell<>() {
+                        @Override
+                        protected void updateItem(String item, boolean empty) {
+                            super.updateItem(item, empty);
+                            setText(empty ? null : item);
+                            setStyle(empty ? "" : "-fx-font-family: monospace;");
+                        }
+                        {
+                            setOnDragDetected(event -> {
+                                if (isEmpty()) return;
+                                javafx.scene.input.Dragboard board =
+                                        startDragAndDrop(javafx.scene.input.TransferMode.MOVE);
+                                javafx.scene.input.ClipboardContent payload =
+                                        new javafx.scene.input.ClipboardContent();
+                                payload.putString(getItem().split(" ", 3)[1]);
+                                board.setContent(payload);
+                                event.consume();
+                            });
+                            setOnDragOver(event -> {
+                                if (event.getGestureSource() != this
+                                        && event.getDragboard().hasString()
+                                        && commits.stream().anyMatch(line -> line.split(" ", 3)[1]
+                                                .equals(event.getDragboard().getString()))) {
+                                    event.acceptTransferModes(javafx.scene.input.TransferMode.MOVE);
+                                }
+                                event.consume();
+                            });
+                            setOnDragDropped(event -> {
+                                boolean moved = false;
+                                if (!isEmpty() && event.getDragboard().hasString()) {
+                                    String hash = event.getDragboard().getString();
+                                    int source = -1;
+                                    for (int i = 0; i < commits.size(); i++) {
+                                        if (commits.get(i).split(" ", 3)[1].equals(hash)) {
+                                            source = i;
+                                            break;
+                                        }
+                                    }
+                                    int target = getIndex();
+                                    if (source >= 0 && source != target) {
+                                        String movedCommit = commits.remove(source);
+                                        if (source < target) target--;
+                                        commits.add(target, movedCommit);
+                                        view.getSelectionModel().select(target);
+                                        moved = true;
+                                    }
+                                }
+                                event.setDropCompleted(moved);
+                                event.consume();
+                            });
+                        }
+                    });
                     commitList.setPrefHeight(360);
                     commitList.setPrefWidth(750);
                     commitList.getSelectionModel().selectFirst();
@@ -986,7 +1038,7 @@ public final class WorkspaceView extends BorderPane {
                         }
                     });
                     Label instructions = new Label(
-                            "Select a commit to change its action or move it. "
+                            \"Select a commit to change its action or move it. \"
                                     + "Squash/fixup must follow a kept commit. "
                                     + "This rewrites local history.");
                     instructions.setWrapText(true);
