@@ -440,6 +440,8 @@ public final class WorkspaceView extends BorderPane {
         Button abortOperation = new Button("Abort Operation");
         Button skipRebase = new Button("Skip Rebase Commit");
         Button conflicts = new Button("Conflicts");
+        Button resolveConflicts = new Button("Resolve Conflict");
+        resolveConflicts.setOnAction(e -> showConflictEditor());
         continueOperation.setOnAction(e -> operateOnSequencer(false));
         abortOperation.setOnAction(e -> operateOnSequencer(true));
         skipRebase.setOnAction(e -> {
@@ -575,7 +577,7 @@ public final class WorkspaceView extends BorderPane {
                 resetBisect, graph, reflog,
                 blame, reset);
         MenuButton operationsMenu = actionsMenu("Operations", continueOperation,
-                abortOperation, skipRebase, conflicts);
+                abortOperation, skipRebase, conflicts, resolveConflicts);
         MenuButton remoteMenu = actionsMenu("Remotes", addRemote, renameRemote,
                 removeRemote, remoteDetails);
         MenuButton advancedMenu = actionsMenu("Advanced", exportPatch, applyPatch,
@@ -825,6 +827,65 @@ public final class WorkspaceView extends BorderPane {
                 Platform.runLater(() -> {
                     if (generation == diffGeneration) diffPreview.setText("Commit error: " + ex.getMessage());
                 });
+            }
+        });
+    }
+    private void showConflictEditor() {
+        if (repository == null) return;
+        Path current = repository;
+        Thread.startVirtualThread(() -> {
+            try {
+                var paths = repositories.conflictedFiles(current);
+                Platform.runLater(() -> {
+                    if (paths.isEmpty()) {
+                        message.setText("No unresolved conflicts.");
+                        return;
+                    }
+                    ChoiceDialog<String> select = new ChoiceDialog<>(paths.getFirst(), paths);
+                    select.setTitle("Resolve Merge Conflict");
+                    select.setHeaderText("Select a conflicted file");
+                    select.showAndWait().ifPresent(path -> loadConflictEditor(current, path));
+                });
+            } catch (Exception ex) {
+                Platform.runLater(() -> message.setText("Conflicts: " + ex.getMessage()));
+            }
+        });
+    }
+    private void loadConflictEditor(Path current, String path) {
+        Thread.startVirtualThread(() -> {
+            try {
+                String ours = repositories.conflictVersion(current, path, 2);
+                String theirs = repositories.conflictVersion(current, path, 3);
+                String working = java.nio.file.Files.readString(current.resolve(path));
+                Platform.runLater(() -> {
+                    Dialog<String> dialog = new Dialog<>();
+                    dialog.setTitle("Resolve: " + path);
+                    dialog.setHeaderText("Review both versions and edit the resolved contents");
+                    TextArea oursView = new TextArea(ours);
+                    TextArea theirsView = new TextArea(theirs);
+                    TextArea result = new TextArea(working);
+                    oursView.setEditable(false);
+                    theirsView.setEditable(false);
+                    oursView.setPrefRowCount(10);
+                    theirsView.setPrefRowCount(10);
+                    result.setPrefRowCount(14);
+                    Button useOurs = new Button("Use Ours");
+                    Button useTheirs = new Button("Use Theirs");
+                    useOurs.setOnAction(e -> result.setText(ours));
+                    useTheirs.setOnAction(e -> result.setText(theirs));
+                    VBox content = new VBox(8, new Label("Ours"), oursView,
+                            new Label("Theirs"), theirsView,
+                            new HBox(8, useOurs, useTheirs),
+                            new Label("Resolution (editable)"), result);
+                    dialog.getDialogPane().setContent(content);
+                    dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
+                    dialog.setResultConverter(button -> button == ButtonType.OK ? result.getText() : null);
+                    dialog.showAndWait().ifPresent(contents ->
+                            confirmOperation("Save and stage resolution for '" + path + "'?",
+                                    () -> repositories.resolveConflict(current, path, contents)));
+                });
+            } catch (Exception ex) {
+                Platform.runLater(() -> message.setText("Conflict editor: " + ex.getMessage()));
             }
         });
     }
