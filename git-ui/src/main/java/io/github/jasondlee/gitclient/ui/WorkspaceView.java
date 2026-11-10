@@ -935,6 +935,9 @@ public final class WorkspaceView extends BorderPane {
                     dialog.setTitle("Commit Graph — All Branches");
                     dialog.setHeaderText("Recent commits and branch topology");
                     javafx.scene.layout.VBox rows = new javafx.scene.layout.VBox(2);
+                    javafx.scene.control.TextField search = new javafx.scene.control.TextField();
+                    search.setPromptText("Filter commits by hash, subject, or ref");
+                    javafx.scene.control.Label count = new javafx.scene.control.Label();
                     javafx.scene.paint.Color[] palette = {
                             javafx.scene.paint.Color.DODGERBLUE,
                             javafx.scene.paint.Color.MEDIUMSEAGREEN,
@@ -974,14 +977,30 @@ public final class WorkspaceView extends BorderPane {
                             });
                             flow.setStyle("-fx-cursor: hand; -fx-padding: 2px 4px;");
                         }
+                        flow.setUserData(line);
                         rows.getChildren().add(flow);
                     }
                     javafx.scene.control.ScrollPane scroll =
                             new javafx.scene.control.ScrollPane(rows);
+                    search.textProperty().addListener((observable, oldValue, query) -> {
+                        String needle = query.strip().toLowerCase(java.util.Locale.ROOT);
+                        int visible = 0;
+                        for (javafx.scene.Node node : rows.getChildren()) {
+                            boolean match = needle.isEmpty()
+                                    || ((String) node.getUserData())
+                                            .toLowerCase(java.util.Locale.ROOT).contains(needle);
+                            node.setVisible(match);
+                            node.setManaged(match);
+                            if (match) visible++;
+                        }
+                        count.setText(visible + " matching graph rows");
+                    });
+                    count.setText(rows.getChildren().size() + " graph rows");
                     scroll.setFitToWidth(true);
                     scroll.setPrefViewportWidth(850);
                     scroll.setPrefViewportHeight(550);
-                    dialog.getDialogPane().setContent(scroll);
+                    javafx.scene.layout.VBox graphContent = new javafx.scene.layout.VBox(6, search, count, scroll);
+                    dialog.getDialogPane().setContent(graphContent);
                     dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
                     dialog.show();
                 });
