@@ -951,7 +951,7 @@ public final class WorkspaceView extends BorderPane {
                     editor.setPrefColumnCount(100);
                     editor.setPrefRowCount(18);
                     Label instructions = new Label(
-                            "Each commit must appear exactly once. Actions: pick, squash, fixup, drop, reword, edit. "
+                            "Each commit must appear exactly once. Actions: pick, squash, fixup, drop. "
                                     + "Squash/fixup must follow a kept commit. This rewrites history.");
                     instructions.setWrapText(true);
                     VBox content = new VBox(8, instructions, editor);
