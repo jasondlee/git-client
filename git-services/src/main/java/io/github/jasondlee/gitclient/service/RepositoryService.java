@@ -146,6 +146,65 @@ public final class RepositoryService {
         }
         return hunks;
     }
+    /**
+     * Build a patch containing only selected changed lines from one unified diff hunk.
+     * Change-line indexes are zero-based and count '+' and '-' lines, excluding headers.
+     */
+    public String selectDiffLines(String patch, Set<Integer> selectedLines) {
+        if (patch == null || selectedLines == null || selectedLines.isEmpty()) {
+            throw new IllegalArgumentException("Select at least one changed line");
+        }
+        int marker = patch.indexOf("\n@@ ");
+        if (!patch.startsWith("diff --git ") || marker < 0) {
+            throw new IllegalArgumentException("Expected a unified diff hunk");
+        }
+        int headerEnd = patch.indexOf('\n', marker + 1);
+        if (headerEnd < 0) throw new IllegalArgumentException("Missing hunk body");
+        String hunkHeader = patch.substring(marker + 1, headerEnd);
+        java.util.regex.Matcher match = java.util.regex.Pattern.compile(
+                "^@@ -(\\d+)(?:,(\\d+))? \\+(\\d+)(?:,(\\d+))? @@(.*)$")
+                .matcher(hunkHeader);
+        if (!match.matches()) throw new IllegalArgumentException("Invalid hunk header");
+        int oldStart = Integer.parseInt(match.group(1));
+        int newStart = Integer.parseInt(match.group(3));
+        int oldCount = 0;
+        int newCount = 0;
+        int changeIndex = 0;
+        int chosen = 0;
+        StringBuilder body = new StringBuilder();
+        for (String line : patch.substring(headerEnd + 1).split("\n", -1)) {
+            if (line.isEmpty()) continue;
+            char prefix = line.charAt(0);
+            if (prefix == '\\') continue;
+            if (prefix != ' ' && prefix != '+' && prefix != '-') {
+                throw new IllegalArgumentException("Unexpected diff line");
+            }
+            if (prefix == ' ') {
+                oldCount++;
+                newCount++;
+                body.append(line).append('\n');
+            } else {
+                boolean include = selectedLines.contains(changeIndex++);
+                if (include) {
+                    chosen++;
+                    if (prefix != '+') oldCount++;
+                    if (prefix != '-') newCount++;
+                    body.append(line).append('\n');
+                } else if (prefix == '-') {
+                    oldCount++;
+                    newCount++;
+                    body.append(' ').append(line.substring(1)).append('\n');
+                }
+            }
+        }
+        if (chosen != selectedLines.size()) {
+            throw new IllegalArgumentException("Selected line index out of range");
+        }
+        return patch.substring(0, marker + 1)
+                + "@@ -" + oldStart + "," + oldCount
+                + " +" + newStart + "," + newCount + " @@" + match.group(5)
+                + "\n" + body;
+    }
     /** Apply a selected diff hunk to the index, or reverse it out of the index. */
     public void applyIndexHunk(Path directory, String patch, boolean reverse) {
         if (patch == null || !patch.startsWith("diff --git ")
