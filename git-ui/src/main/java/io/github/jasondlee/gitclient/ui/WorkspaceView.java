@@ -104,6 +104,10 @@ public final class WorkspaceView extends BorderPane {
                 runBranchAction(() -> repositories.ignorePattern(current, pattern));
             });
         });
+        Button stageLines = new Button("Stage Lines");
+        Button unstageLines = new Button("Unstage Lines");
+        stageLines.setOnAction(e -> chooseDiffLines(false));
+        unstageLines.setOnAction(e -> chooseDiffLines(true));
         Button stageHunk = new Button("Stage Hunk");
         Button unstageHunk = new Button("Unstage Hunk");
         stageHunk.setOnAction(e -> chooseDiffHunk(false));
@@ -613,7 +617,7 @@ public final class WorkspaceView extends BorderPane {
                 configView, configEdit, hooks, lfsFiles, lfsTrack,
                 worktrees, addWorktree, removeWorktree, submodules,
                 updateSubmodules, createTag, annotatedTag, deleteTag, stash, applyStash, dropStash);
-        ToolBar toolbar = new ToolBar(open, recentRepositories, initialize, clone, refresh, stage, unstage, stageHunk, unstageHunk,
+        ToolBar toolbar = new ToolBar(open, recentRepositories, initialize, clone, refresh, stage, unstage, stageHunk, unstageHunk, stageLines, unstageLines,
                 discard, clean, ignore,
                 new Separator(), branchSelector, branchesMenu,
                 new Separator(), historyMenu, operationsMenu, advancedMenu,
@@ -920,6 +924,69 @@ public final class WorkspaceView extends BorderPane {
                 });
             } catch (Exception ex) {
                 Platform.runLater(() -> message.setText("Conflict editor: " + ex.getMessage()));
+            }
+        });
+    }
+    private void chooseDiffLines(boolean unstage) {
+        ChangedFile selected = status.getSelectionModel().getSelectedItem();
+        if (repository == null || selected == null) {
+            message.setText("Select a changed tracked file first.");
+            return;
+        }
+        Path current = repository;
+        Thread.startVirtualThread(() -> {
+            try {
+                var hunks = repositories.diffHunks(current, selected.path(), unstage);
+                Platform.runLater(() -> {
+                    if (hunks.isEmpty()) {
+                        message.setText("No changed lines available.");
+                        return;
+                    }
+                    ChoiceDialog<Integer> chooseHunk = new ChoiceDialog<>(0,
+                            java.util.stream.IntStream.range(0, hunks.size()).boxed().toList());
+                    chooseHunk.setTitle(unstage ? "Unstage Lines" : "Stage Lines");
+                    chooseHunk.setHeaderText("Choose a hunk (zero-based index)");
+                    chooseHunk.showAndWait().ifPresent(index -> {
+                        String patch = hunks.get(index);
+                        int marker = patch.indexOf("\n@@ ");
+                        int body = patch.indexOf('\n', marker + 1);
+                        if (body < 0) return;
+                        Dialog<java.util.Set<Integer>> dialog = new Dialog<>();
+                        dialog.setTitle(unstage ? "Unstage Lines" : "Stage Lines");
+                        dialog.setHeaderText("Select the changed lines to "
+                                + (unstage ? "unstage" : "stage"));
+                        VBox choices = new VBox(4);
+                        java.util.List<CheckBox> boxes = new java.util.ArrayList<>();
+                        int changeIndex = 0;
+                        for (String line : patch.substring(body + 1).split("\n")) {
+                            if (line.startsWith("+") || line.startsWith("-")) {
+                                CheckBox checkbox = new CheckBox(line);
+                                checkbox.setUserData(changeIndex++);
+                                boxes.add(checkbox);
+                                choices.getChildren().add(checkbox);
+                            }
+                        }
+                        ScrollPane scroll = new ScrollPane(choices);
+                        scroll.setFitToWidth(true);
+                        scroll.setPrefViewportHeight(350);
+                        dialog.getDialogPane().setContent(scroll);
+                        dialog.getDialogPane().getButtonTypes().addAll(
+                                ButtonType.OK, ButtonType.CANCEL);
+                        dialog.setResultConverter(button -> {
+                            if (button != ButtonType.OK) return null;
+                            java.util.Set<Integer> chosen = new java.util.HashSet<>();
+                            for (CheckBox box : boxes) {
+                                if (box.isSelected()) chosen.add((Integer) box.getUserData());
+                            }
+                            return chosen.isEmpty() ? null : chosen;
+                        });
+                        dialog.showAndWait().ifPresent(lines ->
+                                runBranchAction(() -> repositories.applyIndexHunk(current,
+                                        repositories.selectDiffLines(patch, lines), unstage)));
+                    });
+                });
+            } catch (Exception ex) {
+                Platform.runLater(() -> message.setText("Line selection: " + ex.getMessage()));
             }
         });
     }
