@@ -1031,7 +1031,23 @@ public final class WorkspaceView extends BorderPane {
                     ChoiceDialog<String> select = new ChoiceDialog<>(paths.getFirst(), paths);
                     select.setTitle("Resolve Merge Conflict");
                     select.setHeaderText("Select a conflicted file");
-                    select.showAndWait().ifPresent(path -> loadConflictEditor(current, path));
+                    select.showAndWait().ifPresent(path -> {
+                        Alert choice = new Alert(Alert.AlertType.CONFIRMATION);
+                        choice.setTitle("Resolve Conflict");
+                        choice.setHeaderText(path);
+                        choice.setContentText("Edit the merged file, or resolve by deleting it?");
+                        ButtonType edit = new ButtonType("Open Editor");
+                        ButtonType delete = new ButtonType("Delete File");
+                        choice.getButtonTypes().setAll(edit, delete, ButtonType.CANCEL);
+                        choice.showAndWait().ifPresent(action -> {
+                            if (action == edit) {
+                                loadConflictEditor(current, path);
+                            } else if (action == delete) {
+                                confirmOperation("Delete and stage removal of '" + path + "'?",
+                                        () -> repositories.resolveConflictByDeleting(current, path));
+                            }
+                        });
+                    });
                 });
             } catch (Exception ex) {
                 Platform.runLater(() -> message.setText("Conflicts: " + ex.getMessage()));
