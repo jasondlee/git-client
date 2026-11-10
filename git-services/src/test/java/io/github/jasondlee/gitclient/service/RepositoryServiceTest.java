@@ -117,6 +117,16 @@ class RepositoryServiceTest {
                 () -> service.resolveConflictByDeleting(directory, "shared.txt"));
     }
 
+    @Test void lfsUntrackRejectsUnsafePatternsWithoutInvokingLfs() {
+        var service = new RepositoryService();
+        assertThrows(IllegalArgumentException.class,
+                () -> service.untrackLfsPattern(directory, "--help"));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.untrackLfsPattern(directory, ""));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.untrackLfsPattern(directory, "line\\nnext"));
+    }
+
     @Test void submoduleSyncAndWorktreePruneWorkWithoutLinkedRepositories() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
