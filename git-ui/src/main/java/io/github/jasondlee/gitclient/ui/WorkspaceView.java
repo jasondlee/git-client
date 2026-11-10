@@ -1031,7 +1031,7 @@ public final class WorkspaceView extends BorderPane {
                     }
                     Dialog<String> dialog = new Dialog<>();
                     dialog.setTitle("Interactive Rebase onto " + base);
-                    dialog.setHeaderText("Reorder commits, reword messages, squash, fixup, or drop");
+                    dialog.setHeaderText("Reorder commits, reword, edit, squash, fixup, or drop");
                     javafx.collections.ObservableList<String> commits =
                             javafx.collections.FXCollections.observableArrayList(initial.lines().toList());
                     java.util.Map<String, String> replacementMessages = new java.util.HashMap<>();
@@ -1093,7 +1093,7 @@ public final class WorkspaceView extends BorderPane {
                     commitList.getSelectionModel().selectFirst();
                     ComboBox<String> action = new ComboBox<>(
                             javafx.collections.FXCollections.observableArrayList(
-                                    "pick", "reword", "squash", "fixup", "drop"));
+                                    "pick", "reword", "edit", "squash", "fixup", "drop"));
                     action.setValue("pick");
                     action.setOnAction(event -> {
                         int index = commitList.getSelectionModel().getSelectedIndex();
@@ -1153,7 +1153,7 @@ public final class WorkspaceView extends BorderPane {
                     });
                     Label instructions = new Label(
                             "Select a commit to choose its action (Reword opens a message editor). Drag to reorder. "
-                                    + "Squash/fixup must follow a kept commit. "
+                                    + "Edit pauses the rebase so you can amend the commit. Squash/fixup must follow a kept commit. "
                                     + "This rewrites local history.");
                     instructions.setWrapText(true);
                     HBox controls = new HBox(8, new Label("Action:"), action, up, down);
