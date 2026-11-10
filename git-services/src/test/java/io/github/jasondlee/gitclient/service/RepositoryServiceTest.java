@@ -214,6 +214,28 @@ class RepositoryServiceTest {
                 () -> service.fileCommitPatch(directory, commitId, "../outside"));
     }
 
+    @Test void fileHistoryPagesFollowRenamesWithoutDuplicates() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        Files.writeString(directory.resolve("before.txt"), "first\n");
+        git("add", ".");
+        git("commit", "-m", "first");
+        git("mv", "before.txt", "after.txt");
+        git("commit", "-m", "rename");
+        Files.writeString(directory.resolve("after.txt"), "third\n");
+        git("add", ".");
+        git("commit", "-m", "third");
+        var service = new RepositoryService();
+        var first = service.fileHistoryPage(directory, "after.txt", 0, 2);
+        var second = service.fileHistoryPage(directory, "after.txt", 2, 2);
+        assertEquals(2, first.size());
+        assertEquals(1, second.size());
+        assertTrue(second.getFirst().contains("first"));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.fileHistoryPage(directory, "after.txt", -1, 2));
+    }
+
     @Test void fileHistoryFollowsRenames() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
