@@ -39,8 +39,8 @@ public final class RepositoryService {
     public List<String> cleanPreview(Path directory, boolean includeIgnored) {
         Path root = findRepository(directory);
         String[] args = includeIgnored
-                ? new String[]{"clean", "-n", "-d", "-x", "-z"}
-                : new String[]{"clean", "-n", "-d", "-z"};
+                ? new String[]{"clean", "-n", "-d", "-x"}
+                : new String[]{"clean", "-n", "-d"};
         String output = new String(git.run(root, args), StandardCharsets.UTF_8);
         return output.lines().filter(line -> line.startsWith("Would remove "))
                 .map(line -> line.substring("Would remove ".length())).toList();
