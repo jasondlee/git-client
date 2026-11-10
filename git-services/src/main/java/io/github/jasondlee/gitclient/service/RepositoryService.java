@@ -111,6 +111,51 @@ public final class RepositoryService {
         }
         return result;
     }
+    /** Returns individual unified-diff hunks including the file header needed by git apply. */
+    public List<String> diffHunks(Path directory, String path, boolean staged) {
+        String patch = diff(directory, path, staged);
+        int first = patch.indexOf("@@ ");
+        if (first < 0) return List.of();
+        String header = patch.substring(0, first);
+        List<String> hunks = new ArrayList<>();
+        int start = first;
+        while (start >= 0) {
+            int next = patch.indexOf("\n@@ ", start + 3);
+            int end = next < 0 ? patch.length() : next + 1;
+            hunks.add(header + patch.substring(start, end));
+            start = next < 0 ? -1 : next + 1;
+        }
+        return hunks;
+    }
+    /** Apply a selected diff hunk to the index, or reverse it out of the index. */
+    public void applyIndexHunk(Path directory, String patch, boolean reverse) {
+        if (patch == null || !patch.startsWith("diff --git ")
+                || !patch.contains("\n@@ ") || patch.length() > 2_000_000) {
+            throw new IllegalArgumentException("Invalid unified diff hunk");
+        }
+        Path root = findRepository(directory);
+        Path temporary = null;
+        try {
+            temporary = java.nio.file.Files.createTempFile("git-client-hunk-", ".patch");
+            java.nio.file.Files.writeString(temporary, patch, StandardCharsets.UTF_8);
+            if (reverse) {
+                git.run(root, "apply", "--cached", "--reverse", "--unidiff-zero",
+                        temporary.toString());
+            } else {
+                git.run(root, "apply", "--cached", "--unidiff-zero", temporary.toString());
+            }
+        } catch (java.io.IOException ex) {
+            throw new java.io.UncheckedIOException("Unable to prepare diff hunk", ex);
+        } finally {
+            if (temporary != null) {
+                try {
+                    java.nio.file.Files.deleteIfExists(temporary);
+                } catch (java.io.IOException ignored) {
+                    temporary.toFile().deleteOnExit();
+                }
+            }
+        }
+    }
     public void pull(Path directory) {
         git.run(findRepository(directory), "pull", "--ff-only");
     }
