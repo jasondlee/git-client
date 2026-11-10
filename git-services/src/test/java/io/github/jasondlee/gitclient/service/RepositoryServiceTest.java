@@ -22,6 +22,29 @@ class RepositoryServiceTest {
             throw new java.io.UncheckedIOException(ex);
         }
     }
+    @Test void resolvesThreeWayMergeConflict() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
+        Files.writeString(directory.resolve("tracked.txt"), "base\n");
+        git("add", "tracked.txt");
+        git("commit", "-m", "base");
+        var service = new RepositoryService();
+        service.createBranch(directory, "feature");
+        Files.writeString(directory.resolve("tracked.txt"), "ours\n");
+        git("commit", "-am", "ours");
+        service.switchBranch(directory, "feature");
+        Files.writeString(directory.resolve("tracked.txt"), "theirs\n");
+        git("commit", "-am", "theirs");
+        service.switchBranch(directory, "master");
+        assertThrows(RuntimeException.class, () -> service.merge(directory, "feature"));
+        assertEquals("ours\n", service.conflictVersion(directory, "tracked.txt", 2));
+        assertEquals("theirs\n", service.conflictVersion(directory, "tracked.txt", 3));
+        service.resolveConflict(directory, "tracked.txt", "resolved\n");
+        assertFalse(service.conflictedFiles(directory).contains("tracked.txt"));
+        assertEquals("resolved\n", Files.readString(directory.resolve("tracked.txt")));
+    }
     @Test void showsDecoratedCommitGraph() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
