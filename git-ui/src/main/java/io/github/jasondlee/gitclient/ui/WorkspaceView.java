@@ -294,7 +294,7 @@ public final class WorkspaceView extends BorderPane {
                     .ifPresent(query -> {
                         Path current = repository;
                         showTextReport("Files matching: " + query,
-                                () -> String.join("\\n",
+                                () -> String.join("\n",
                                         repositories.searchTrackedPaths(current, query, 500)));
                     });
         });
