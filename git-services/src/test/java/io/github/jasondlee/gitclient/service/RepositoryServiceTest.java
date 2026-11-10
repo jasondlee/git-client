@@ -39,8 +39,13 @@ class RepositoryServiceTest {
         git("commit", "-am", "theirs");
         service.switchBranch(directory, "master");
         assertThrows(RuntimeException.class, () -> service.merge(directory, "feature"));
+        assertEquals("base\n", service.conflictVersion(directory, "tracked.txt", 1));
         assertEquals("ours\n", service.conflictVersion(directory, "tracked.txt", 2));
         assertEquals("theirs\n", service.conflictVersion(directory, "tracked.txt", 3));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.conflictVersion(directory, "tracked.txt", 4));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.resolveConflict(directory, "../outside.txt", "invalid"));
         service.resolveConflict(directory, "tracked.txt", "resolved\n");
         assertFalse(service.conflictedFiles(directory).contains("tracked.txt"));
         assertEquals("resolved\n", Files.readString(directory.resolve("tracked.txt")));
