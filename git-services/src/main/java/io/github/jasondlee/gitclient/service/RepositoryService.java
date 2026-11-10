@@ -357,7 +357,7 @@ public final class RepositoryService {
         if (count <= 0) return List.of();
         Path root = findRepository(directory);
         validateRepositoryPath(root, path);
-        String output = new String(git.run(root, "log", "-n", Integer.toString(count),
+        String output = new String(git.run(root, "log", "--follow", "-n", Integer.toString(Math.min(count, 10000)),
                 "--format=%h %ad %s", "--date=short", "--", path), StandardCharsets.UTF_8);
         return output.lines().toList();
     }
