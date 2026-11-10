@@ -474,6 +474,7 @@ public final class WorkspaceView extends BorderPane {
         Button abortOperation = new Button("Abort Operation");
         Button skipRebase = new Button("Skip Rebase Commit");
         Button conflicts = new Button("Conflicts");
+        Button rebaseProgress = new Button("Rebase Progress");
         Button resolveConflicts = new Button("Resolve Conflict");
         resolveConflicts.setOnAction(e -> showConflictEditor());
         continueOperation.setOnAction(e -> operateOnSequencer(false));
@@ -483,6 +484,12 @@ public final class WorkspaceView extends BorderPane {
             Path current = repository;
             confirmOperation("Skip the current rebase commit?",
                     () -> repositories.skipRebase(current));
+        });
+        rebaseProgress.setOnAction(e -> {
+            if (repository != null) {
+                Path current = repository;
+                showTextReport("Rebase Progress", () -> repositories.rebaseProgress(current));
+            }
         });
         conflicts.setOnAction(e -> showTextReport("Unresolved conflicts",
                 () -> String.join("\n", repositories.conflictedFiles(repository))));
@@ -611,7 +618,7 @@ public final class WorkspaceView extends BorderPane {
                 resetBisect, graph, reflog,
                 blame, reset);
         MenuButton operationsMenu = actionsMenu("Operations", continueOperation,
-                abortOperation, skipRebase, conflicts, resolveConflicts);
+                abortOperation, skipRebase, rebaseProgress, conflicts, resolveConflicts);
         MenuButton remoteMenu = actionsMenu("Remotes", addRemote, renameRemote,
                 removeRemote, remoteDetails);
         MenuButton advancedMenu = actionsMenu("Advanced", exportPatch, applyPatch,
