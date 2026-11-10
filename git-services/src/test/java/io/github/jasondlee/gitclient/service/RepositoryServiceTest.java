@@ -96,6 +96,29 @@ class RepositoryServiceTest {
                 () -> service.resolveConflictByDeleting(directory, "shared.txt"));
     }
 
+    @Test void historyPagesDoNotRepeatCommits() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        for (int i = 0; i < 5; i++) {
+            Files.writeString(directory.resolve("entry.txt"), "revision " + i + "\n");
+            git("add", ".");
+            git("commit", "-m", "revision " + i);
+        }
+        var service = new RepositoryService();
+        var first = service.historyPage(directory, 0, 2);
+        var second = service.historyPage(directory, 2, 2);
+        var last = service.historyPage(directory, 4, 2);
+        assertEquals(2, first.size());
+        assertEquals(2, second.size());
+        assertEquals(1, last.size());
+        assertEquals(5, java.util.stream.Stream.of(first, second, last)
+                .flatMap(java.util.List::stream).map(commit -> commit.id()).distinct().count());
+        assertEquals(first, service.history(directory, 2));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.historyPage(directory, -1, 2));
+    }
+
     @Test void fileCommitPatchFindsChangesBeforeRename() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
