@@ -49,6 +49,7 @@ public final class CommitGraphView extends VBox {
             updateMatches();
             list.refresh();
         });
+        list.setFixedCellSize(HEIGHT);
         list.setCellFactory(view -> new ListCell<>() {
             @Override protected void updateItem(GraphLine line, boolean empty) {
                 super.updateItem(line, empty);
@@ -59,6 +60,7 @@ public final class CommitGraphView extends VBox {
                     return;
                 }
                 setText(null);
+                setPadding(javafx.geometry.Insets.EMPTY);
                 Canvas canvas = new Canvas(width * CELL, HEIGHT);
                 GraphicsContext gc = canvas.getGraphicsContext2D();
                 gc.setLineWidth(2.2);
@@ -115,9 +117,6 @@ public final class CommitGraphView extends VBox {
         });
         list.setOnMouseClicked(event -> {
             if (event.getClickCount() == 2) openSelected();
-        });
-        list.setOnKeyPressed(event -> {
-            if (event.getCode() == javafx.scene.input.KeyCode.ENTER) openSelected();
         });
         Button previous = new Button("Previous match");
         Button next = new Button("Next match");
