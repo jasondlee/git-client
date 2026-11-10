@@ -9,6 +9,9 @@ import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyCodeCombination;
+import javafx.scene.input.KeyCombination;
 import java.nio.file.Path;
 
 public final class WorkspaceView extends BorderPane {
@@ -580,6 +583,15 @@ public final class WorkspaceView extends BorderPane {
                 new Separator(), remoteSelector, remoteMenu, fetch, pull, push,
                 new Separator(), branch, location);
         setTop(toolbar);
+        getSceneProperty().addListener((obs, oldScene, scene) -> {
+            if (scene == null) return;
+            scene.getAccelerators().put(new KeyCodeCombination(KeyCode.O,
+                    KeyCombination.SHORTCUT_DOWN), this::openRepository);
+            scene.getAccelerators().put(new KeyCodeCombination(KeyCode.R,
+                    KeyCombination.SHORTCUT_DOWN), this::refresh);
+            scene.getAccelerators().put(new KeyCodeCombination(KeyCode.ENTER,
+                    KeyCombination.SHORTCUT_DOWN), this::commit);
+        });
         TableColumn<ChangedFile,String> path = new TableColumn<>("File");
         path.setCellValueFactory(c -> new ReadOnlyStringWrapper(c.getValue().path()));
         TableColumn<ChangedFile,String> index = new TableColumn<>("Index");
