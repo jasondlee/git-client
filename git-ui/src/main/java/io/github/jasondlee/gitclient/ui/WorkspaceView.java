@@ -994,6 +994,7 @@ public final class WorkspaceView extends BorderPane {
                 Platform.runLater(() -> {
                     if (generation != refreshGeneration) return;
                     repository = root;
+                    rememberRepository(root);
                     location.setText(root.toString());
                     branch.setText(snapshot.branch());
                     operationState.setText(operation);
