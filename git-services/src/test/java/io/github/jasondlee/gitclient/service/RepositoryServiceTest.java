@@ -22,6 +22,34 @@ class RepositoryServiceTest {
             throw new java.io.UncheckedIOException(ex);
         }
     }
+    @Test void commitGraphIncludesFullHashesAndMergeTopology() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        Files.writeString(directory.resolve("base.txt"), "base\n");
+        git("add", ".");
+        git("commit", "-m", "base");
+        git("checkout", "-b", "feature");
+        Files.writeString(directory.resolve("feature.txt"), "feature\n");
+        git("add", ".");
+        git("commit", "-m", "feature work");
+        git("checkout", "master");
+        Files.writeString(directory.resolve("master.txt"), "master\n");
+        git("add", ".");
+        git("commit", "-m", "master work");
+        git("merge", "--no-ff", "feature", "-m", "merge feature");
+        var service = new RepositoryService();
+        String graph = service.commitGraph(directory, 100);
+        assertTrue(graph.contains("merge feature"), graph);
+        assertTrue(graph.contains("feature work"), graph);
+        assertTrue(graph.contains("master work"), graph);
+        assertTrue(graph.contains("\\"), graph);
+        assertTrue(graph.contains("*"), graph);
+        String head = service.history(directory, 1).getFirst().id();
+        assertTrue(graph.contains(head), graph);
+        assertEquals("", service.commitGraph(directory, 0));
+    }
+
     @Test void interactiveRebaseRejectsFirstFixupAndDirtyTree() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
