@@ -23,7 +23,7 @@ public final class GitCommandExecutor {
             Future<byte[]> stderr = io.submit(() -> process.getErrorStream().readAllBytes());
             Duration timeout = List.of(args).contains("rebase") ? REBASE_TIMEOUT : TIMEOUT;
             if (!process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
-                process.destroyForcibly();
+                terminateProcessTree(process);
                 throw new GitException("Git command timed out");
             }
             byte[] out = stdout.get();
@@ -33,10 +33,15 @@ public final class GitCommandExecutor {
             }
             return out;
         } catch (InterruptedException e) {
-            process.destroyForcibly(); Thread.currentThread().interrupt();
+            terminateProcessTree(process); Thread.currentThread().interrupt();
             throw new GitException("Git operation interrupted", e);
         } catch (ExecutionException e) {
-            process.destroyForcibly(); throw new GitException("Unable to read Git output", e);
+            terminateProcessTree(process); throw new GitException("Unable to read Git output", e);
         }
+    }
+
+    private static void terminateProcessTree(Process process) {
+        process.descendants().forEach(ProcessHandle::destroyForcibly);
+        process.destroyForcibly();
     }
 }
