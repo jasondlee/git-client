@@ -317,7 +317,7 @@ public final class WorkspaceView extends BorderPane {
             leftDialog.showAndWait().map(String::strip).filter(value -> !value.isEmpty())
                     .ifPresent(left -> {
                         TextInputDialog rightDialog = new TextInputDialog(
-                                branchSelector.getValue() == null ? "HEAD~1" : branchSelector.getValue());
+                                branchSelector.getValue() == null ? "HEAD" : branchSelector.getValue());
                         rightDialog.setTitle("Compare References");
                         rightDialog.setHeaderText("Choose the ending branch, tag or commit");
                         rightDialog.setContentText("To:");
