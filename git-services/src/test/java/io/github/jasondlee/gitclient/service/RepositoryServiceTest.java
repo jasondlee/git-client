@@ -50,6 +50,30 @@ class RepositoryServiceTest {
         assertEquals("", service.commitGraph(directory, 0));
     }
 
+    @Test void historyCanCreateBranchAndTagAtEarlierCommit() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        Files.writeString(directory.resolve("one.txt"), "one\n");
+        git("add", ".");
+        git("commit", "-m", "first");
+        Files.writeString(directory.resolve("two.txt"), "two\n");
+        git("add", ".");
+        git("commit", "-m", "second");
+        var service = new RepositoryService();
+        String earlier = service.history(directory, 2).get(1).id();
+        service.createBranchAt(directory, "from-history", earlier);
+        service.createTagAt(directory, "history-point", earlier);
+        assertTrue(service.branches(directory).contains("from-history"));
+        assertTrue(service.tags(directory).contains("history-point"));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.createBranchAt(directory, "-invalid", earlier));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.createTagAt(directory, "bad tag", earlier));
+        assertThrows(IllegalArgumentException.class,
+                () -> service.createTagAt(directory, "valid", "not-a-hash"));
+    }
+
     @Test void interactiveRebaseRejectsFirstFixupAndDirtyTree() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
