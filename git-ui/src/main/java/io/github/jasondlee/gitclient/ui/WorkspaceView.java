@@ -681,6 +681,8 @@ public final class WorkspaceView extends BorderPane {
                 copyHash.setOnAction(event -> javafx.scene.input.Clipboard.getSystemClipboard()
                         .setContent(java.util.Map.of(
                                 javafx.scene.input.DataFormat.PLAIN_TEXT, item.id())));
+                MenuItem compare = new MenuItem("Compare Commit to HEAD");
+                compare.setOnAction(event -> compareCommitToHead(item.id()));
                 MenuItem cherryPick = new MenuItem("Cherry-pick Commit");
                 cherryPick.setOnAction(event -> {
                     if (repository != null) {
@@ -702,7 +704,7 @@ public final class WorkspaceView extends BorderPane {
                 createBranch.setOnAction(event -> createReferenceAt(item.id(), false));
                 MenuItem createTag = new MenuItem("Create Tag Here");
                 createTag.setOnAction(event -> createReferenceAt(item.id(), true));
-                menu.getItems().addAll(details, copyHash, new SeparatorMenuItem(),
+                menu.getItems().addAll(details, copyHash, compare, new SeparatorMenuItem(),
                         cherryPick, revert, new SeparatorMenuItem(),
                         createBranch, createTag);
                 setContextMenu(menu);
@@ -1341,7 +1343,8 @@ public final class WorkspaceView extends BorderPane {
                 hash -> operateOnCommit(hash, false),
                 hash -> operateOnCommit(hash, true),
                 hash -> createReferenceAt(hash, false),
-                hash -> createReferenceAt(hash, true));
+                hash -> createReferenceAt(hash, true),
+                hash -> compareCommitToHead(hash));
     }
 
     private void showCommitDetails(String hash) {
@@ -1358,6 +1361,13 @@ public final class WorkspaceView extends BorderPane {
                     if (revert) repositories.revert(current, hash);
                     else repositories.cherryPick(current, hash);
                 });
+    }
+
+    private void compareCommitToHead(String hash) {
+        if (repository == null) return;
+        Path current = repository;
+        showTextReport("Changes since " + hash.substring(0, 8),
+                () -> repositories.compare(current, hash, "HEAD"));
     }
 
     private void createReferenceAt(String hash, boolean tag) {
