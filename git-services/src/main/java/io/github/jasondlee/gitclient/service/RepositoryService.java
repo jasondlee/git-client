@@ -362,6 +362,33 @@ public final class RepositoryService {
         if (output.isEmpty()) return List.of();
         return Arrays.stream(output.split("\u0000")).filter(path -> !path.isEmpty()).toList();
     }
+    public String conflictVersion(Path directory, String path, int stage) {
+        if (stage != 1 && stage != 2 && stage != 3) {
+            throw new IllegalArgumentException("Conflict stage must be 1, 2 or 3");
+        }
+        Path root = findRepository(directory);
+        validateRepositoryPath(root, path);
+        return new String(git.run(root, "show", ":" + stage + ":" + path),
+                StandardCharsets.UTF_8);
+    }
+    public void resolveConflict(Path directory, String path, String contents) {
+        Path root = findRepository(directory);
+        validateRepositoryPath(root, path);
+        if (contents == null) throw new IllegalArgumentException("Missing resolution");
+        Path target = root.resolve(path).normalize();
+        if (java.nio.file.Files.isSymbolicLink(target)) {
+            throw new IllegalArgumentException("Cannot edit a symbolic link conflict");
+        }
+        if (!conflictedFiles(root).contains(path)) {
+            throw new IllegalArgumentException("File is not currently conflicted: " + path);
+        }
+        try {
+            java.nio.file.Files.writeString(target, contents, StandardCharsets.UTF_8);
+        } catch (java.io.IOException ex) {
+            throw new java.io.UncheckedIOException("Unable to write conflict resolution", ex);
+        }
+        stage(root, List.of(path));
+    }
     public void continueMerge(Path directory) {
         if (!conflictedFiles(directory).isEmpty()) {
             throw new IllegalStateException("Resolve and stage all conflicts before continuing");
