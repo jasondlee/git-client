@@ -22,6 +22,20 @@ class RepositoryServiceTest {
             throw new java.io.UncheckedIOException(ex);
         }
     }
+    @Test void showsDecoratedCommitGraph() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        git("config", "core.autocrlf", "false");
+        Files.writeString(directory.resolve("tracked.txt"), "initial\n");
+        git("add", "tracked.txt");
+        git("commit", "-m", "initial");
+        var service = new RepositoryService();
+        String graph = service.commitGraph(directory, 10);
+        assertTrue(graph.contains("initial"));
+        assertTrue(graph.contains("*"));
+        assertEquals("", service.commitGraph(directory, 0));
+    }
     @Test void stagesAndUnstagesIndividualHunks() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
