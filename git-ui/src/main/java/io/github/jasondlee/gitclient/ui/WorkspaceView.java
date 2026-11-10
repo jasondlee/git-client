@@ -390,7 +390,7 @@ public final class WorkspaceView extends BorderPane {
             dialog.setContentText("New branch and folder name:");
             dialog.showAndWait().map(String::strip).filter(name -> !name.isEmpty())
                     .ifPresent(name -> {
-                        if (name.contains("/") || name.contains("\\\\")
+                        if (name.contains("/") || name.indexOf((char) 92) >= 0
                                 || name.equals(".") || name.equals("..")) {
                             message.setText("Choose a simple folder name without separators");
                             return;
