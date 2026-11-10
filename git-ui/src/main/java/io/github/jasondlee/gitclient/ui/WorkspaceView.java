@@ -50,6 +50,7 @@ public final class WorkspaceView extends BorderPane {
     private final Button loadMoreHistory = new Button("Load More Commits");
     private boolean historyPageLoading;
     private boolean historyHasMore = true;
+    private volatile Thread runningGitOperation;
 
     public WorkspaceView() {
         Button open = new Button("Open Repository");
@@ -708,6 +709,18 @@ public final class WorkspaceView extends BorderPane {
         activity.visibleProperty().bind(loading.or(operationRunning));
         activity.managedProperty().bind(loading.or(operationRunning));
         toolbar.getItems().add(activity);
+        Button cancelRunning = new Button("Cancel Running Operation");
+        cancelRunning.setAccessibleText("Interrupt the current Git operation");
+        cancelRunning.disableProperty().bind(operationRunning.not());
+        cancelRunning.setOnAction(event -> {
+            Thread worker = runningGitOperation;
+            if (worker != null) {
+                worker.interrupt();
+                message.setText("Cancellation requested; waiting for Git to stop...");
+            }
+        });
+        toolbar.getItems().add(cancelRunning);
+
         location.setAccessibleText("Repository location");
         branch.setAccessibleText("Current branch");
         operationState.setAccessibleText("Active Git operation");
@@ -1063,20 +1076,29 @@ public final class WorkspaceView extends BorderPane {
         }
         operationRunning.set(true);
         message.setText("Running Git operation...");
-        Thread.startVirtualThread(() -> {
+        Thread worker = Thread.ofVirtual().unstarted(() -> {
             try {
                 action.run();
                 Platform.runLater(() -> {
+                    runningGitOperation = null;
                     operationRunning.set(false);
                     refresh();
                 });
             } catch (Exception ex) {
+                boolean cancelled = Thread.currentThread().isInterrupted();
                 Platform.runLater(() -> {
+                    runningGitOperation = null;
                     operationRunning.set(false);
-                    showOperationError("Git operation failed", ex);
+                    if (cancelled) {
+                        message.setText("Git operation cancelled. Refresh to inspect repository state.");
+                    } else {
+                        showOperationError("Git operation failed", ex);
+                    }
                 });
             }
         });
+        runningGitOperation = worker;
+        worker.start();
     }
 
     private void showOperationError(String title, Exception error) {
