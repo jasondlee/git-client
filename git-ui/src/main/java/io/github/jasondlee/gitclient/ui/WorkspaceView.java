@@ -1018,8 +1018,30 @@ public final class WorkspaceView extends BorderPane {
                     });
                     VBox fileList = new VBox(8, commits, more);
                     VBox.setVgrow(commits, javafx.scene.layout.Priority.ALWAYS);
-                    HBox content = new HBox(8, fileList, patch);
-                    HBox.setHgrow(patch, javafx.scene.layout.Priority.ALWAYS);
+                    TextField patchSearch = new TextField();
+                    patchSearch.setPromptText("Find in selected patch");
+                    patchSearch.setAccessibleText("Search within selected commit patch");
+                    Runnable findPatch = () -> {
+                        String query = patchSearch.getText();
+                        if (query == null || query.isEmpty()) return;
+                        String contentText = patch.getText().toLowerCase(java.util.Locale.ROOT);
+                        int from = patch.getSelection().getEnd();
+                        int index = contentText.indexOf(query.toLowerCase(java.util.Locale.ROOT), from);
+                        if (index < 0) index = contentText.indexOf(query.toLowerCase(java.util.Locale.ROOT));
+                        if (index >= 0) {
+                            patch.selectRange(index, index + query.length());
+                            patch.requestFocus();
+                        }
+                    };
+                    patchSearch.setOnAction(event -> findPatch.run());
+                    Button findNextPatch = new Button("Find Next");
+                    findNextPatch.setOnAction(event -> findPatch.run());
+                    HBox patchSearchBar = new HBox(8, patchSearch, findNextPatch);
+                    HBox.setHgrow(patchSearch, javafx.scene.layout.Priority.ALWAYS);
+                    VBox patchPanel = new VBox(8, patchSearchBar, patch);
+                    VBox.setVgrow(patch, javafx.scene.layout.Priority.ALWAYS);
+                    HBox content = new HBox(8, fileList, patchPanel);
+                    HBox.setHgrow(patchPanel, javafx.scene.layout.Priority.ALWAYS);
                     content.setPrefSize(1100, 650);
                     dialog.getDialogPane().setContent(content);
                     dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
