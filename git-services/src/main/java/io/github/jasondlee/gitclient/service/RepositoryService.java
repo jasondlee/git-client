@@ -354,10 +354,15 @@ public final class RepositoryService {
         return output.lines().toList();
     }
     public List<String> fileHistory(Path directory, String path, int count) {
+        return fileHistoryPage(directory, path, 0, count);
+    }
+    public List<String> fileHistoryPage(Path directory, String path, int offset, int count) {
+        if (offset < 0) throw new IllegalArgumentException("History offset must be nonnegative");
         if (count <= 0) return List.of();
         Path root = findRepository(directory);
         validateRepositoryPath(root, path);
-        String output = new String(git.run(root, "log", "--follow", "-n", Integer.toString(Math.min(count, 10000)),
+        String output = new String(git.run(root, "log", "--follow",
+                "--skip=" + offset, "-n", Integer.toString(Math.min(count, 1000)),
                 "--format=%h %ad %s", "--date=short", "--", path), StandardCharsets.UTF_8);
         return output.lines().toList();
     }
