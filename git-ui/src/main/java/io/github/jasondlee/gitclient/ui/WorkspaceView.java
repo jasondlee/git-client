@@ -978,7 +978,7 @@ public final class WorkspaceView extends BorderPane {
                             });
                             setOnDragDropped(event -> {
                                 boolean moved = false;
-                                if (!isEmpty() && event.getDragboard().hasString()) {
+                                if (event.getDragboard().hasString()) {
                                     String hash = event.getDragboard().getString();
                                     int source = -1;
                                     for (int i = 0; i < commits.size(); i++) {
@@ -987,8 +987,8 @@ public final class WorkspaceView extends BorderPane {
                                             break;
                                         }
                                     }
-                                    int target = getIndex();
-                                    if (source >= 0 && source != target) {
+                                    int target = Math.min(getIndex(), commits.size());
+                                    if (source >= 0 && source != target && source + 1 != target) {
                                         String movedCommit = commits.remove(source);
                                         if (source < target) target--;
                                         commits.add(target, movedCommit);
@@ -1038,7 +1038,7 @@ public final class WorkspaceView extends BorderPane {
                         }
                     });
                     Label instructions = new Label(
-                            \"Select a commit to change its action or move it. \"
+                            "Select a commit to choose its action. Drag it to reorder, or use the Move buttons. "
                                     + "Squash/fixup must follow a kept commit. "
                                     + "This rewrites local history.");
                     instructions.setWrapText(true);
