@@ -1029,8 +1029,11 @@ public final class WorkspaceView extends BorderPane {
                                             }
                                         });
                                     } catch (Exception ex) {
-                                        Platform.runLater(() -> patch.setText(
-                                                "Unable to load patch: " + ex.getMessage()));
+                                        Platform.runLater(() -> {
+                                            if (selected.equals(commits.getSelectionModel().getSelectedItem())) {
+                                                patch.setText("Unable to load patch: " + ex.getMessage());
+                                            }
+                                        });
                                     }
                                 });
                             });
