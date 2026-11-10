@@ -596,6 +596,13 @@ public final class RepositoryService {
                 "--no-color", "--format=fuller", "--stat", "--patch", commitId),
                 StandardCharsets.UTF_8);
     }
+    public String commitGraph(Path directory, int count) {
+        if (count <= 0) return "";
+        return new String(git.run(findRepository(directory), "log", "--all",
+                "--graph", "--decorate", "--oneline", "--color=never",
+                "-n", Integer.toString(Math.min(count, 1000))),
+                StandardCharsets.UTF_8);
+    }
     public List<CommitInfo> history(Path directory, int count) {
         if (count <= 0) return List.of();
         String status = new String(git.run(directory, "status", "--porcelain=v2", "--branch", "-z"), StandardCharsets.UTF_8);
