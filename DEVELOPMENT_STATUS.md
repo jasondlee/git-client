@@ -3,20 +3,20 @@
 Updated: 2026-11-10. Repository: https://github.com/jasondlee/git-client
 
 ## Current verified state (2026-11-10)
-- Branch `master` is at `2d568e6` and tracks `origin/master`; there are no other local branches or open GitHub issues/PRs. No Jira references or `proposals/` directory were found in the checkout.
+- Branch `master` is at `95d1c31`, one commit ahead of `origin/master`; no other local branches or open GitHub issues/PRs were found. No Jira references or `proposals/` directory were found in the checkout.
 - The historical run [42758137662](https://github.com/jasondlee/git-client/actions/runs/42758137662) passed its Windows, Ubuntu, and macOS build/test jobs.
-- Newer runs on the current commit, [Build and test 42937032558](https://github.com/jasondlee/git-client/actions/runs/42937032558) and [Package 42937032612](https://github.com/jasondlee/git-client/actions/runs/42937032612), fail on Windows and macOS. Both fail `RepositoryServiceTest.createsWorktreeWithNewBranchFromHead` at the worktree-path comparison; Ubuntu succeeds. Linux packaging succeeds. The working-tree test now compares canonical paths and passes locally, but that change is uncommitted and has not been verified on Windows/macOS CI.
+- Runs [Build and test 42937032558](https://github.com/jasondlee/git-client/actions/runs/42937032558) and [Package 42937032612](https://github.com/jasondlee/git-client/actions/runs/42937032612) ran on commit `2d568e6`, before the worktree-path fix. They fail on Windows and macOS at `RepositoryServiceTest.createsWorktreeWithNewBranchFromHead`; Ubuntu succeeds, as does Linux packaging. The canonical-path fix is now included in `95d1c31`, but has not been verified by hosted CI.
 - Current local verification passes: `mvn --batch-mode --no-transfer-progress compile test-compile`, `mvn --batch-mode --no-transfer-progress test`, and `mvn --batch-mode --no-transfer-progress --fail-at-end verify`. The test run reports 18 CLI, 68 service, and 5 UI tests (91 total), with no failures.
-- Uncommitted work also completes the OpenPGP signing flow: one run-scoped passphrase prompt, GnuPG agent cache seeding/cleanup, preserved Git signing config, explicit-sign flag coverage, and UI annotation collection. Git tag signing configuration is checked from the existing background operation worker, not the JavaFX thread. This implementation has not been committed or run through GitHub Actions.
+- Commit `95d1c31` adds the OpenPGP signing flow: one run-scoped passphrase prompt, GnuPG agent cache seeding/cleanup, preserved Git signing config, explicit-sign flag coverage, and UI annotation collection. Git tag signing configuration is checked from the existing background operation worker, not the JavaFX thread. It has not been verified by hosted CI.
 
 ## Authority and history
 This document transfers project context from a long ChatGPT development conversation. **It is not an independently verified feature audit.** The current branch, source code, automated tests, and current GitHub Actions runs take precedence. The initial `docs/ARCHITECTURE.md` (2026-11-08) says implementation had not started; that statement is obsolete. It contains the original vision and 48-capability scope, not a current completion checklist.
 
-Latest observed commit at handoff: `02636e323208ec34ed4d04ccfb27dd73eb439994` — rename Java packages and Maven coordinates. Previous commit `51a892496bfec3b684236215ef92673717aa3be8` fixed build/test failures involving Git interruption, untracked status, rename-aware pagination, and diff-search naming. Recheck HEAD before acting.
+Latest commit: `95d1c31` — configured OpenPGP signing. Previous commit `2d568e6` added the Codex project handoff and development status; `02636e3` renamed Java packages and Maven coordinates. The current uncommitted change aligns the parent Maven artifact with the Java package name.
 
 ## Technology and modules
 - Java 27, JavaFX 27.0.1, Maven, JUnit Jupiter; native Git CLI on PATH.
-- Current parent coordinates: `com.steeplesoft:kikobo:0.1.0-SNAPSHOT`; packages: `com.steeplesoft.kiboko`.
+- Current parent coordinates: `com.steeplesoft:kiboko:0.1.0-SNAPSHOT`; packages: `com.steeplesoft.kiboko`.
 - `git-model`: domain records; `git-cli`: Git execution and parsing; `git-services`: operations; `git-ui`: JavaFX UI; `git-app`: launcher.
 - GitHub Actions: `.github/workflows/build.yml` verifies on Ubuntu/Windows/macOS; `.github/workflows/package.yml` builds jlink/jpackage bundles and installers.
 

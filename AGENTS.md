@@ -5,7 +5,7 @@ Read `DEVELOPMENT_STATUS.md`, `README.md`, `docs/ARCHITECTURE.md`, and relevant 
 
 ## Stack and architecture
 - Java 27, JavaFX 27, Maven multi-module JPMS application.
-- Parent Maven coordinates currently `com.steeplesoft:kikobo:0.1.0-SNAPSHOT`; Java source packages recently moved to `com.steeplesoft.kiboko`. Check actual module POMs and declarations before changing them.
+- Parent Maven coordinates currently `com.steeplesoft:kiboko:0.1.0-SNAPSHOT`; Java source packages recently moved to `com.steeplesoft.kiboko`. Check actual module POMs and declarations before changing them.
 - Modules: `git-model` (records), `git-cli` (ProcessBuilder/native Git), `git-services` (workflows), `git-ui` (JavaFX), `git-app` (launcher).
 - Git installed on PATH is the source of truth. Preserve Git configuration, credential helpers, hooks, and ordinary repositories; no proprietary repository metadata.
 - Preserve module boundaries. No JavaFX dependencies in model, CLI, or services. Prefer simple, testable Java and avoid unnecessary frameworks or abstractions.
