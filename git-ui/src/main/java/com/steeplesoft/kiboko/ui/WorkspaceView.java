@@ -13,9 +13,12 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
 import java.nio.file.Path;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 public final class WorkspaceView extends BorderPane {
-    private final RepositoryService repositories = new RepositoryService();
+    private final RepositoryService repositories;
     private final Label location = new Label("No repository open");
     private final Label branch = new Label("");
     private final Label operationState = new Label("");
@@ -52,7 +55,14 @@ public final class WorkspaceView extends BorderPane {
     private boolean historyHasMore = true;
     private volatile Thread runningGitOperation;
 
+    /** Creates a workspace with its own default repository service. */
     public WorkspaceView() {
+        this(new RepositoryService());
+    }
+
+    /** Creates a workspace using the repository service shared by the application run. */
+    public WorkspaceView(RepositoryService repositories) {
+        this.repositories = java.util.Objects.requireNonNull(repositories);
         Button open = new Button("Open Repository");
         updateRecentRepositories();
         Button initialize = new Button("Initialize...");
@@ -1189,11 +1199,50 @@ public final class WorkspaceView extends BorderPane {
     }
     private void createTag() {
         if (repository == null) return;
+        Path current = repository;
         TextInputDialog dialog = new TextInputDialog();
         dialog.setTitle("Create Tag");
-        dialog.setHeaderText("Create lightweight tag at HEAD");
+        dialog.setHeaderText("Create tag at HEAD");
         dialog.setContentText("Tag name:");
-        dialog.showAndWait().ifPresent(name -> runBranchAction(() -> repositories.createTag(repository, name)));
+        dialog.showAndWait().ifPresent(name -> runTagCreation(current, name, null));
+    }
+
+    /** Runs tag configuration checks and creation away from the JavaFX application thread. */
+    private void runTagCreation(Path current, String name, String commitId) {
+        runBranchAction(() -> {
+            if (repositories.tagSigningEnabled(current)) {
+                String annotation = requestTagAnnotation();
+                if (annotation == null) return;
+                if (commitId == null) repositories.createAnnotatedTag(current, name, annotation);
+                else repositories.createAnnotatedTagAt(current, name, annotation, commitId);
+            } else if (commitId == null) {
+                repositories.createTag(current, name);
+            } else {
+                repositories.createTagAt(current, name, commitId);
+            }
+        });
+    }
+
+    /** Requests tag text on the JavaFX thread while the Git worker waits for the answer. */
+    private String requestTagAnnotation() {
+        CompletableFuture<String> response = new CompletableFuture<>();
+        Platform.runLater(() -> {
+            if (response.isCancelled()) return;
+            TextInputDialog dialog = new TextInputDialog();
+            dialog.setTitle("Tag Annotation");
+            dialog.setHeaderText("Git signing configuration requires an annotated tag");
+            dialog.setContentText("Annotation:");
+            response.complete(dialog.showAndWait().orElse(null));
+        });
+        try {
+            return response.get();
+        } catch (InterruptedException ex) {
+            response.cancel(false);
+            Thread.currentThread().interrupt();
+            throw new CancellationException("Tag creation cancelled");
+        } catch (ExecutionException ex) {
+            throw new IllegalStateException("Unable to collect the tag annotation", ex.getCause());
+        }
     }
     private void deleteTag() {
         if (repository == null || tagSelector.getValue() == null) return;
@@ -1810,10 +1859,8 @@ public final class WorkspaceView extends BorderPane {
         dialog.setContentText(tag ? "Tag name:" : "Branch name:");
         dialog.showAndWait().filter(name -> !name.isBlank()).ifPresent(name -> {
             Path current = repository;
-            runBranchAction(() -> {
-                if (tag) repositories.createTagAt(current, name, hash);
-                else repositories.createBranchAt(current, name, hash);
-            });
+            if (tag) runTagCreation(current, name, hash);
+            else runBranchAction(() -> repositories.createBranchAt(current, name, hash));
         });
     }
 

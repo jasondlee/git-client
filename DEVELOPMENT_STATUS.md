@@ -2,6 +2,13 @@
 
 Updated: 2026-11-10. Repository: https://github.com/jasondlee/git-client
 
+## Current verified state (2026-11-10)
+- Branch `master` is at `2d568e6` and tracks `origin/master`; there are no other local branches or open GitHub issues/PRs. No Jira references or `proposals/` directory were found in the checkout.
+- The historical run [42758137662](https://github.com/jasondlee/git-client/actions/runs/42758137662) passed its Windows, Ubuntu, and macOS build/test jobs.
+- Newer runs on the current commit, [Build and test 42937032558](https://github.com/jasondlee/git-client/actions/runs/42937032558) and [Package 42937032612](https://github.com/jasondlee/git-client/actions/runs/42937032612), fail on Windows and macOS. Both fail `RepositoryServiceTest.createsWorktreeWithNewBranchFromHead` at the worktree-path comparison; Ubuntu succeeds. Linux packaging succeeds. The working-tree test now compares canonical paths and passes locally, but that change is uncommitted and has not been verified on Windows/macOS CI.
+- Current local verification passes: `mvn --batch-mode --no-transfer-progress compile test-compile`, `mvn --batch-mode --no-transfer-progress test`, and `mvn --batch-mode --no-transfer-progress --fail-at-end verify`. The test run reports 18 CLI, 68 service, and 5 UI tests (91 total), with no failures.
+- Uncommitted work also completes the OpenPGP signing flow: one run-scoped passphrase prompt, GnuPG agent cache seeding/cleanup, preserved Git signing config, explicit-sign flag coverage, and UI annotation collection. Git tag signing configuration is checked from the existing background operation worker, not the JavaFX thread. This implementation has not been committed or run through GitHub Actions.
+
 ## Authority and history
 This document transfers project context from a long ChatGPT development conversation. **It is not an independently verified feature audit.** The current branch, source code, automated tests, and current GitHub Actions runs take precedence. The initial `docs/ARCHITECTURE.md` (2026-11-08) says implementation had not started; that statement is obsolete. It contains the original vision and 48-capability scope, not a current completion checklist.
 
@@ -36,11 +43,11 @@ Prior investigated GitHub Actions runs include:
 - https://github.com/jasondlee/git-client/actions/runs/42757564143
 - https://github.com/jasondlee/git-client/actions/runs/42758137662
 
-These are historical references, **not evidence of current CI status**. Inspect newer runs and check the latest commit, including the package rename.
+These are historical references, **not evidence of current CI status**. The current latest workflow results and failures are recorded above.
 
 ## Outstanding verification and release work
 1. Audit original 48 requirements in `docs/ARCHITECTURE.md` against actual code, UI actions, and tests. Classify each as complete, partial, absent, or deferred; link evidence.
-2. Verify current CI and resolve any cross-platform build, test, or packaging failures after the latest package/coordinate rename.
+2. Rerun Windows/macOS CI after the canonical-path fix is integrated. The signing implementation also needs cross-platform CI.
 3. Run manual JavaFX acceptance on Windows, macOS, Linux: graph topology/filtering, keyboard focus/shortcuts, accessibility, dialogs, diff and conflict views, rebase recovery, and repository refresh.
 4. Exercise native installers by installing and launching on supported OSes. Linux CI has an application-bundle launcher smoke test; this is not the same as installing an installer.
 5. Decide and implement signing, macOS notarization, release publication, and distribution policies before public release. Current installers are unsigned/unnotarized.
@@ -55,9 +62,8 @@ mvn -pl git-app javafx:run
 ```
 JDK 27, Maven, and Git are required. See `README.md` for jlink/jpackage commands.
 
-## Next Codex session
-1. Inspect current HEAD, branches, working tree, and latest CI runs.
-2. Build and test; identify regressions and verify actual feature coverage.
-3. Create an evidence-backed feature matrix against the 48 requirements, preserving explicit deferrals.
-4. Fix the next agreed priority end-to-end, including tests and documentation.
-5. Keep this file current and finish every progress report with a bulleted list of remaining tasks.
+## Next work
+1. Run hosted Windows/macOS build and package workflows after the local worktree-path fix and OpenPGP signing changes are integrated; current remote results predate them.
+2. Create an evidence-backed matrix for all 48 requirements, using complete/partial/absent/deferred with source and test evidence.
+3. Run manual JavaFX acceptance and installer install/launch checks on supported desktop platforms.
+4. Reconcile older phase-specific deferrals from the prior conversation; their identities are not available in this checkout.

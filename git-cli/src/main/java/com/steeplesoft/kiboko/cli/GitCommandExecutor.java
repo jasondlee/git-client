@@ -10,7 +10,21 @@ public final class GitCommandExecutor {
     private static final Duration TIMEOUT = Duration.ofSeconds(45);
     private static final Duration REBASE_TIMEOUT = Duration.ofMinutes(5);
     private static final Duration NETWORK_TIMEOUT = Duration.ofMinutes(15);
+    private final OpenPgpSigningSession signingSession;
+
+    /** Creates an executor without app-managed OpenPGP prompting. */
+    public GitCommandExecutor() {
+        this(null);
+    }
+
+    /** Creates an executor that prepares OpenPGP signing when Git configuration requests it. */
+    public GitCommandExecutor(OpenPgpSigningSession signingSession) {
+        this.signingSession = signingSession;
+    }
+
+    /** Runs Git after preparing OpenPGP for operations that are configured to sign. */
     public byte[] run(Path directory, String... args) {
+        if (signingSession != null) signingSession.prepareIfRequested(directory, args);
         List<String> command = new ArrayList<>();
         command.add("git"); command.add("--no-pager"); command.addAll(List.of(args));
         Process process;
@@ -47,6 +61,18 @@ public final class GitCommandExecutor {
                 terminateProcessTree(process);
                 throw new GitException("Unable to read Git output", e);
             }
+        }
+    }
+
+    /** Reads a Git boolean setting and returns false when the setting is unset. */
+    public boolean configBoolean(Path directory, String key) {
+        try {
+            return new String(run(directory, "config", "--bool", "--get", key),
+                    StandardCharsets.UTF_8).strip().equalsIgnoreCase("true");
+        } catch (GitException ex) {
+            String detail = ex.getMessage();
+            if (detail != null && detail.startsWith("Git exited with 1:")) return false;
+            throw ex;
         }
     }
 

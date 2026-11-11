@@ -4,9 +4,43 @@ import com.steeplesoft.kiboko.model.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.*;
-public final class RepositoryService {
-    private final GitCommandExecutor git = new GitCommandExecutor();
+import java.util.function.Supplier;
+public final class RepositoryService implements AutoCloseable {
+    private final GitCommandExecutor git;
+    private final OpenPgpSigningSession signingSession;
     private final GitStatusParser statusParser = new GitStatusParser();
+
+    /** Creates a repository service with the default Git executor. */
+    public RepositoryService() {
+        this(new GitCommandExecutor(), null);
+    }
+
+    /** Creates a repository service using the executor shared by the application run. */
+    public RepositoryService(GitCommandExecutor git) {
+        this(git, null);
+    }
+
+    /** Creates a service with app-managed OpenPGP signing for one GUI run. */
+    public RepositoryService(Supplier<char[]> passphrasePrompt) {
+        this(new OpenPgpSigningSession(passphrasePrompt));
+    }
+
+    /** Binds the signing session to the Git executor that uses it. */
+    private RepositoryService(OpenPgpSigningSession signingSession) {
+        this(new GitCommandExecutor(signingSession), signingSession);
+    }
+
+    /** Creates a service with an optional run-scoped signing session. */
+    private RepositoryService(GitCommandExecutor git, OpenPgpSigningSession signingSession) {
+        this.git = Objects.requireNonNull(git);
+        this.signingSession = signingSession;
+    }
+
+    /** Clears GnuPG cache entries seeded by the app-managed session, if present. */
+    @Override public void close() {
+        if (signingSession != null) signingSession.close();
+    }
+
     public Path initialize(Path directory) {
         if (directory == null || !java.nio.file.Files.isDirectory(directory)) {
             throw new IllegalArgumentException("Choose an existing directory");
@@ -457,6 +491,12 @@ public final class RepositoryService {
         }
         git.run(findRepository(directory), "tag", "-a", name, "-m", message);
     }
+
+    /** Reports whether Git's tag.gpgSign setting makes a new tag require an annotation. */
+    public boolean tagSigningEnabled(Path directory) {
+        return git.configBoolean(findRepository(directory), "tag.gpgSign");
+    }
+
     public void createTag(Path directory, String name) {
         if (name == null || name.isBlank() || name.startsWith("-")) {
             throw new IllegalArgumentException("Invalid tag name");
@@ -685,6 +725,17 @@ public final class RepositoryService {
         }
         validateCommitId(commitId);
         git.run(findRepository(directory), "tag", name, commitId);
+    }
+
+    /** Creates an annotated tag at a selected commit using the message collected by the UI. */
+    public void createAnnotatedTagAt(Path directory, String name, String message, String commitId) {
+        if (name == null || name.isBlank() || name.startsWith("-")
+                || name.contains(" ") || name.contains("..")
+                || message == null || message.isBlank()) {
+            throw new IllegalArgumentException("Tag name and message are required");
+        }
+        validateCommitId(commitId);
+        git.run(findRepository(directory), "tag", "-a", name, "-m", message, commitId);
     }
 
     public void switchBranch(Path directory, String name) {

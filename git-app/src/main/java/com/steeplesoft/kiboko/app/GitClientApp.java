@@ -1,22 +1,31 @@
 package com.steeplesoft.kiboko.app;
 
+import com.steeplesoft.kiboko.service.RepositoryService;
 import com.steeplesoft.kiboko.ui.WorkspaceView;
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.scene.Scene;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBar;
+import javafx.scene.control.ButtonType;
+import javafx.scene.control.Dialog;
+import javafx.scene.control.PasswordField;
 import javafx.scene.control.MenuButton;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.ToolBar;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
 import java.nio.file.Path;
 import java.nio.file.Files;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.prefs.Preferences;
 
 public final class GitClientApp extends Application {
@@ -24,6 +33,8 @@ public final class GitClientApp extends Application {
     private final MenuButton recentlyClosed = new MenuButton("Reopen Closed");
     private final java.util.Deque<Path> closedPaths = new java.util.ArrayDeque<>();
     private final Preferences preferences = Preferences.userNodeForPackage(GitClientApp.class);
+    private final RepositoryService repositoryService =
+            new RepositoryService(this::promptForOpenPgpPassphrase);
     private static final String SESSION_KEY = "openRepositoryTabs";
 
     @Override public void start(Stage stage) {
@@ -122,26 +133,76 @@ public final class GitClientApp extends Application {
     }
 
     @Override public void stop() {
-        StringBuilder saved = new StringBuilder();
-        for (Tab tab : repositories.getTabs()) {
-            WorkspaceView workspace = (WorkspaceView) tab.getContent();
-            String location = workspace.repositoryLocationProperty().get();
-            if (location == null || location.equals("No repository open")) continue;
-            try {
-                Path path = Path.of(location);
-                if (!Files.isDirectory(path)) continue;
-                if (!saved.isEmpty()) saved.append('\n');
-                saved.append(java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(
-                        location.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
-            } catch (IllegalArgumentException ignored) {
-                // Ignore invalid paths rather than preventing application shutdown.
+        try {
+            StringBuilder saved = new StringBuilder();
+            for (Tab tab : repositories.getTabs()) {
+                WorkspaceView workspace = (WorkspaceView) tab.getContent();
+                String location = workspace.repositoryLocationProperty().get();
+                if (location == null || location.equals("No repository open")) continue;
+                try {
+                    Path path = Path.of(location);
+                    if (!Files.isDirectory(path)) continue;
+                    if (!saved.isEmpty()) saved.append('\n');
+                    saved.append(java.util.Base64.getUrlEncoder().withoutPadding().encodeToString(
+                            location.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
+                } catch (IllegalArgumentException ignored) {
+                    // Ignore invalid paths rather than preventing application shutdown.
+                }
             }
+            preferences.put(SESSION_KEY, saved.toString());
+        } finally {
+            repositoryService.close();
         }
-        preferences.put(SESSION_KEY, saved.toString());
+    }
+
+    /** Shows the one-time OpenPGP passphrase prompt on JavaFX's application thread. */
+    private char[] promptForOpenPgpPassphrase() {
+        if (Platform.isFxApplicationThread()) return showOpenPgpPassphraseDialog();
+        CompletableFuture<char[]> result = new CompletableFuture<>();
+        Platform.runLater(() -> {
+            if (result.isCancelled()) return;
+            try {
+                result.complete(showOpenPgpPassphraseDialog());
+            } catch (RuntimeException ex) {
+                result.completeExceptionally(ex);
+            }
+        });
+        try {
+            return result.get();
+        } catch (InterruptedException ex) {
+            result.cancel(false);
+            Thread.currentThread().interrupt();
+            return null;
+        } catch (ExecutionException ex) {
+            throw new IllegalStateException("Unable to show the OpenPGP passphrase prompt", ex.getCause());
+        }
+    }
+
+    /** Collects a passphrase without placing it in preferences or process arguments. */
+    private char[] showOpenPgpPassphraseDialog() {
+        Dialog<char[]> dialog = new Dialog<>();
+        dialog.setTitle("OpenPGP Signing");
+        dialog.setHeaderText("Enter your OpenPGP passphrase");
+        ButtonType continueButton = new ButtonType("Continue", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(continueButton, ButtonType.CANCEL);
+        PasswordField field = new PasswordField();
+        field.setPromptText("Passphrase");
+        dialog.getDialogPane().setContent(new VBox(8, field));
+        dialog.setResultConverter(button -> {
+            if (button != continueButton) {
+                field.clear();
+                return null;
+            }
+            char[] entered = field.getText().toCharArray();
+            field.clear();
+            return entered;
+        });
+        dialog.setOnShown(event -> field.requestFocus());
+        return dialog.showAndWait().orElse(null);
     }
 
     private void addRepositoryTab(Path path) {
-        WorkspaceView workspace = new WorkspaceView();
+        WorkspaceView workspace = new WorkspaceView(repositoryService);
         Tab tab = new Tab(path == null ? "New Repository" : path.getFileName().toString(),
                 workspace);
         workspace.repositoryLocationProperty().addListener((observable, oldLocation, newLocation) -> {

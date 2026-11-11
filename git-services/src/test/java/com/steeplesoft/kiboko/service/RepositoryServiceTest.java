@@ -7,13 +7,20 @@ import java.io.IOException;
 import static org.junit.jupiter.api.Assertions.*;
 class RepositoryServiceTest {
     @TempDir Path directory;
+    /** Runs fixture Git commands with signing isolated from the developer's global config. */
     private void git(String... args) throws Exception {
         var command = new java.util.ArrayList<String>();
         command.add("git");
+        command.addAll(java.util.List.of("-c", "tag.gpgSign=false", "-c", "commit.gpgSign=false"));
         command.addAll(java.util.List.of(args));
         Process process = new ProcessBuilder(command).directory(directory.toFile()).redirectErrorStream(true).start();
         String output = new String(process.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         assertEquals(0, process.waitFor(), output);
+        if (args.length > 0 && args[0].equals("init")) {
+            git("config", "commit.gpgSign", "false");
+            git("config", "tag.gpgSign", "false");
+            git("config", "tag.forceSignAnnotated", "false");
+        }
     }
     private static Path canonicalPath(Path path) {
         try {
@@ -152,7 +159,7 @@ class RepositoryServiceTest {
             assertTrue(Files.isRegularFile(linked.resolve("tracked.txt")));
             assertTrue(service.branches(directory).contains("new-worktree-branch"));
             assertTrue(service.worktrees(directory).stream()
-                    .anyMatch(path -> Path.of(path).toAbsolutePath().normalize().equals(linked)));
+                    .anyMatch(path -> canonicalPath(Path.of(path)).equals(canonicalPath(linked))));
         } finally {
             if (Files.exists(linked)) {
                 git("worktree", "remove", "--force", linked.toString());
@@ -1303,6 +1310,7 @@ class RepositoryServiceTest {
         service.fetch(directory, "origin");
         assertThrows(IllegalArgumentException.class, () -> service.fetch(directory, "missing"));
     }
+    /** Ensures normal tag creation and deletion still work with signing disabled. */
     @Test void createsAndDeletesLocalTags() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
@@ -1312,12 +1320,63 @@ class RepositoryServiceTest {
         git("add", "tracked.txt");
         git("commit", "-m", "initial");
         var service = new RepositoryService();
+        assertFalse(service.tagSigningEnabled(directory));
         service.createTag(directory, "v1.0");
         assertTrue(service.tags(directory).contains("v1.0"));
         service.deleteTag(directory, "v1.0");
         assertFalse(service.tags(directory).contains("v1.0"));
         assertThrows(IllegalArgumentException.class, () -> service.createTag(directory, "-bad"));
     }
+
+    /** Ensures tag operations honor configured signing and annotation behavior. */
+    @Test void configuredSigningIsNotDisabledByTagOperations() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        Files.writeString(directory.resolve("tracked.txt"), "initial\n");
+        git("add", "tracked.txt");
+        git("commit", "-m", "initial");
+        git("config", "tag.gpgSign", "true");
+        git("config", "tag.forceSignAnnotated", "true");
+        git("config", "core.editor", "false");
+        git("config", "gpg.program", directory.resolve("missing-gpg").toString());
+        git("config", "gpg.openpgp.program", directory.resolve("missing-gpg").toString());
+        RepositoryService service = new RepositoryService();
+
+        assertTrue(service.tagSigningEnabled(directory));
+        String head = service.history(directory, 1).getFirst().id();
+        assertThrows(com.steeplesoft.kiboko.cli.GitException.class,
+                () -> service.createTag(directory, "lightweight-request"));
+        assertThrows(com.steeplesoft.kiboko.cli.GitException.class,
+                () -> service.createTagAt(directory, "tag-at-request", head));
+        assertThrows(com.steeplesoft.kiboko.cli.GitException.class,
+                () -> service.createAnnotatedTag(directory, "annotated-request", "message"));
+        assertThrows(com.steeplesoft.kiboko.cli.GitException.class,
+                () -> service.createAnnotatedTagAt(directory, "annotated-at-request", "message", head));
+        assertFalse(service.tags(directory).contains("lightweight-request"));
+        assertFalse(service.tags(directory).contains("tag-at-request"));
+        assertFalse(service.tags(directory).contains("annotated-request"));
+        assertFalse(service.tags(directory).contains("annotated-at-request"));
+    }
+
+    /** Ensures forceSignAnnotated does not change a lightweight tag into an annotated tag. */
+    @Test void forceSignAnnotatedAppliesOnlyToAnnotatedTagRequests() throws Exception {
+        git("init", "-b", "master");
+        git("config", "user.name", "Test Author");
+        git("config", "user.email", "test@example.invalid");
+        Files.writeString(directory.resolve("tracked.txt"), "initial\n");
+        git("add", "tracked.txt");
+        git("commit", "-m", "initial");
+        git("config", "tag.forceSignAnnotated", "true");
+        RepositoryService service = new RepositoryService();
+
+        assertFalse(service.tagSigningEnabled(directory));
+        service.createTag(directory, "lightweight-only");
+
+        assertEquals("commit", new String(new com.steeplesoft.kiboko.cli.GitCommandExecutor().run(directory,
+                "cat-file", "-t", "refs/tags/lightweight-only"), StandardCharsets.UTF_8).strip());
+    }
+
     @Test void createsAndSwitchesLocalBranches() throws Exception {
         git("init", "-b", "master");
         git("config", "user.name", "Test Author");
