@@ -67,3 +67,94 @@ JDK 27, Maven, and Git are required. See `README.md` for jlink/jpackage commands
 2. Create an evidence-backed matrix for all 48 requirements, using complete/partial/absent/deferred with source and test evidence.
 3. Run manual JavaFX acceptance and installer install/launch checks on supported desktop platforms.
 4. Reconcile older phase-specific deferrals from the prior conversation; their identities are not available in this checkout.
+
+## Feature audit (2026-11-10)
+
+This is a source and documentation audit of the 48 capabilities in `docs/ARCHITECTURE.md`, not a manual GUI acceptance result. “Implemented” means a corresponding workflow is evidenced in the current source or README. “Partial” means related functionality exists but the full requirement or its acceptance conditions are not established. “Absent” means no corresponding workflow was found. The architecture is an initial proposal; its roadmap checkboxes are not implementation status.
+
+### FR-01 — Repository and workspace
+
+| Capability | Status | Evidence / limitation |
+| --- | --- | --- |
+| Open existing repositories | Implemented | Repository open and validation workflows are present. |
+| Initialize repositories | Implemented | Workspace action and service operation exist. |
+| Clone repositories | Implemented | Workspace action and service operation exist. |
+| Multiple repositories and tabs | Partial | Multiple repositories and workspace restoration are documented; full tabbed-workflow acceptance was not verified in this audit. |
+| Repository bookmarks and groups | Absent | Recent repository navigation exists; no bookmark or grouping workflow found. |
+| Recent repositories | Implemented | Recent repository navigation is present. |
+| Bare repositories | Partial | Repository discovery exists; complete bare-repository inspection behavior is not established. |
+| Repository settings | Absent | No repository settings editor found. |
+
+### FR-02 — Working tree and commits
+
+| Capability | Status | Evidence / limitation |
+| --- | --- | --- |
+| Working tree status | Implemented | Status model, service, and workspace UI exist. |
+| Stage and unstage files | Implemented | File staging operations are present. |
+| Stage individual hunks and lines | Implemented | Hunk and selected-line patch operations exist. |
+| Discard selected changes | Implemented | Discard workflow exists with confirmation for destructive actions. |
+| Create and amend commits | Implemented | Commit and amend controls are present. |
+| Commit templates and signing | Partial | OpenPGP signing was added; commit templates and other signing setups are not established. |
+| Ignore file management | Partial | Ignore-pattern action exists; broader ignore-file management is not established. |
+| Untracked and binary file handling | Partial | Untracked cleanup and binary-conflict handling exist; full file handling acceptance is not established. |
+
+### FR-03 — History and branches
+
+| Capability | Status | Evidence / limitation |
+| --- | --- | --- |
+| Interactive commit graph | Implemented | Graph view and history navigation exist; the graph loads at most the latest 500 commits. |
+| Local and remote branches | Implemented | Branch and remote operations are present. |
+| Create, rename, and delete branches | Implemented | Branch operations are present. |
+| Checkout and detached HEAD | Partial | Checkout support exists; detached-HEAD acceptance behavior was not established. |
+| Tags and annotated tags | Implemented | Tag workflows exist; OpenPGP signing support is documented in the current status above. |
+| Commit search and filtering | Implemented | History filtering and search are documented. |
+| File history and blame | Implemented | Rename-aware file history and blame are documented. |
+| Compare branches and commits | Implemented | Ref comparison workflow is documented. |
+
+### FR-04 — Git operations and recovery
+
+| Capability | Status | Evidence / limitation |
+| --- | --- | --- |
+| Merge and conflict resolution | Partial | Text, deletion, and binary-stage resolution exist; a full merge workflow is not established. |
+| Interactive rebase | Implemented | Plan editing and recovery actions are documented; linear local history is a stated limitation. |
+| Cherry-pick and revert | Implemented | History context actions are documented. |
+| Reset (soft, mixed, hard) | Absent | No reset workflow found. |
+| Stash management | Implemented | List, create, apply, and drop operations are present. |
+| Fetch, pull, and push | Implemented | Remote operations are present. |
+| Reflog and recovery | Absent | No reflog or recovery workflow found. |
+| Bisect | Absent | No bisect workflow found. |
+
+### FR-05 — Advanced Git
+
+| Capability | Status | Evidence / limitation |
+| --- | --- | --- |
+| Worktrees | Implemented | Create, remove, and prune workflows are documented. |
+| Submodules | Implemented | Add, update, and URL synchronization workflows are documented. |
+| Git LFS | Implemented | Tracking and object downloads are documented; `git-lfs` is a separate prerequisite. |
+| Git-flow | Absent | No Git-flow workflow found. |
+| Patch creation and application | Absent | No standalone patch workflow found. |
+| Sparse checkout | Absent | No sparse-checkout workflow found. |
+| Git hooks integration | Absent | No hooks management workflow found. |
+| Git configuration editor | Absent | No configuration editor found. |
+
+### FR-06 — Integration and experience
+
+| Capability | Status | Evidence / limitation |
+| --- | --- | --- |
+| SSH and HTTPS authentication | Partial | Native Git preserves configured transport and authentication behavior; no dedicated authentication workflow found. |
+| Credential helper integration | Partial | Operations delegate to native Git and its configured helpers; no separate integration UI is established. |
+| GitHub/GitLab/Bitbucket integration | Absent | No hosting-provider API workflow found. |
+| External diff and merge tools | Absent | No external-tool integration workflow found. |
+| Keyboard shortcuts | Implemented | Shortcut reference and key actions are documented. |
+| Dark and light themes | Absent | No theme-switching workflow found. |
+| Background refresh | Partial | Manual refresh and progress behavior exist; filesystem monitoring and automatic-refresh acceptance are not established. |
+| Cross-platform native packaging | Partial | Platform bundles and installers are defined; CI after recent commits and installer install/launch acceptance remain outstanding. |
+
+### Audit findings and follow-up
+
+- Strongest implementation evidence covers the core repository workflow, history navigation, interactive rebase, and selected advanced Git operations.
+- No corresponding workflows were found for Git-flow, patch creation/application, sparse checkout, hooks management, configuration editing, reflog, bisect, reset, hosting-provider API integration, themes, or external diff/merge tools. Decide which remain in scope and record deferrals or priorities.
+- At audit time, the checkout was clean and `master` was two commits ahead of `origin/master`; this supersedes the stale branch/worktree counts above. The two local commits add OpenPGP signing and align the Maven artifact name.
+- No Jira references or `proposals/` directory were found in the checkout. GitHub search returned no open issues or pull requests for the repository.
+- No build or GUI acceptance checks were run specifically for this audit. The verification recorded earlier in this document predates the latest Maven-coordinate commit; hosted CI results were not independently checked during the audit.
+- Remaining work: refresh the stale verified-state and history text near the top of this handoff; verify Windows/macOS CI after the latest commits; run manual GUI and installer acceptance on supported platforms; reconcile any prior phase deferrals that are not recorded here.
